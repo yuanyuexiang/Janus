@@ -1,5 +1,6 @@
 ---
-name: methodology/risk_assessment
+name: risk-assessment
+description: 关键词触发；要求 Agent 在涉及风险/压力测试/黑天鹅类问题时给出多维度可证伪的风险清单。
 version: 0.1.0
 ---
 

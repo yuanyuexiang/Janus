@@ -22,31 +22,60 @@ logger = logging.getLogger(__name__)
 MAX_TOOL_TURNS = 6
 
 
-def _extract_json_object(text: str) -> dict[str, Any] | None:
-    """Find the last balanced JSON object in `text`. Tolerates surrounding prose / fences."""
+def _extract_json_object(
+    text: str, required_keys: list[str] | None = None
+) -> dict[str, Any] | None:
+    """Extract a JSON object from `text`, tolerating surrounding prose / fences.
+
+    Strategy:
+      1. Strip ``` / ```json fences.
+      2. Forward-scan to find every top-level (depth-0) balanced `{...}` span.
+      3. If `required_keys` is given, prefer the latest span that contains *all* of them
+         (this avoids picking nested objects like `{"bullish": [...]}` inside a disagreement).
+      4. Fall back to the latest successfully parsed object.
+    """
     if not text:
         return None
-    # Strip ```json fences if present
-    stripped = re.sub(r"```(?:json)?\s*", "", text)
-    stripped = stripped.replace("```", "")
-    # Walk from the end to find a balanced { ... }
+    stripped = re.sub(r"```(?:json)?", "", text)
+
+    spans: list[tuple[int, int]] = []
     depth = 0
-    end = None
-    for i in range(len(stripped) - 1, -1, -1):
-        c = stripped[i]
-        if c == "}":
+    start: int | None = None
+    for i, c in enumerate(stripped):
+        if c == "{":
             if depth == 0:
-                end = i
+                start = i
             depth += 1
-        elif c == "{":
+        elif c == "}":
+            if depth == 0:
+                continue  # unbalanced stray; ignore
             depth -= 1
-            if depth == 0 and end is not None:
-                candidate = stripped[i : end + 1]
-                try:
-                    return json.loads(candidate)
-                except json.JSONDecodeError:
-                    end = None
-                    depth = 0
+            if depth == 0 and start is not None:
+                spans.append((start, i))
+                start = None
+
+    if not spans:
+        return None
+
+    # First pass: latest span with all required keys
+    if required_keys:
+        for s, e in reversed(spans):
+            try:
+                obj = json.loads(stripped[s : e + 1])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict) and all(k in obj for k in required_keys):
+                return obj
+
+    # Fallback: latest parseable object
+    for s, e in reversed(spans):
+        try:
+            obj = json.loads(stripped[s : e + 1])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict):
+            return obj
+
     return None
 
 
@@ -146,7 +175,9 @@ async def run_advisor(
             "message": f"Advisor exceeded {MAX_TOOL_TURNS} tool turns",
         }
 
-    parsed = _extract_json_object(accumulated_text)
+    parsed = _extract_json_object(
+        accumulated_text, required_keys=["stance", "confidence", "summary_for_user"]
+    )
 
     if parsed is None:
         logger.warning(
@@ -177,7 +208,9 @@ async def run_advisor(
             async for event in stream:
                 if event.type == "content_block_delta" and event.delta.type == "text_delta":
                     retry_text += event.delta.text
-        parsed = _extract_json_object(retry_text)
+        parsed = _extract_json_object(
+            retry_text, required_keys=["stance", "confidence", "summary_for_user"]
+        )
 
     if parsed is None:
         logger.warning(

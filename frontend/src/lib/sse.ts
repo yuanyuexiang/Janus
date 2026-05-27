@@ -1,19 +1,26 @@
 import { API_BASE } from "@/lib/api";
 import type { ChatEvent } from "@/lib/types";
 
+export type ChatRequestOpts = {
+  conversationId?: string | null;
+  mode?: "solo" | "mini" | "full";
+  advisor?: string;
+};
+
 export async function* streamChat(
   question: string,
-  conversationId?: string | null,
+  opts: ChatRequestOpts = {},
   signal?: AbortSignal,
 ): AsyncGenerator<ChatEvent> {
+  const body: Record<string, unknown> = { question };
+  if (opts.conversationId) body.conversation_id = opts.conversationId;
+  if (opts.mode) body.mode = opts.mode;
+  if (opts.advisor) body.advisor = opts.advisor;
+
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(
-      conversationId
-        ? { question, conversation_id: conversationId }
-        : { question },
-    ),
+    body: JSON.stringify(body),
     signal,
   });
   if (!res.ok || !res.body) {

@@ -1,5 +1,6 @@
 ---
-name: common/no_fabrication
+name: no-fabrication
+description: 始终生效；禁止 Agent 编造任何市场/财务/估值数据，所有数字必须来自工具调用。
 version: 0.1.0
 ---
 

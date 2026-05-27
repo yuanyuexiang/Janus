@@ -79,6 +79,7 @@ class Message(Base):
     content: Mapped[str | None] = mapped_column(Text)
     structured: Mapped[dict | None] = mapped_column(JSONB)
     tool_calls: Mapped[list] = mapped_column(JSONB, default=list)
+    active_skills: Mapped[list] = mapped_column(JSONB, default=list)
     model: Mapped[str | None] = mapped_column(String(64))
     tokens_in: Mapped[int | None] = mapped_column(Integer)
     tokens_out: Mapped[int | None] = mapped_column(Integer)

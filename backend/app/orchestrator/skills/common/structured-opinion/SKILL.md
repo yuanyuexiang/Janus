@@ -1,5 +1,6 @@
 ---
-name: common/structured_opinion
+name: structured-opinion
+description: 始终生效；强制顾问最后一条消息只输出符合 AdvisorOpinion schema 的 JSON。
 version: 0.1.0
 ---
 

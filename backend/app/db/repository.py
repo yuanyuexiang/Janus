@@ -50,6 +50,7 @@ async def save_message(
     agent: str | None = None,
     structured: dict | None = None,
     tool_calls: list | None = None,
+    active_skills: list | None = None,
     model: str | None = None,
     tokens_in: int | None = None,
     tokens_out: int | None = None,
@@ -61,6 +62,7 @@ async def save_message(
         content=content,
         structured=structured,
         tool_calls=tool_calls or [],
+        active_skills=active_skills or [],
         model=model,
         tokens_in=tokens_in,
         tokens_out=tokens_out,
@@ -79,6 +81,20 @@ async def list_conversations(db: AsyncSession, member: Member, limit: int = 50) 
         .limit(limit)
     )
     return list((await db.execute(stmt)).scalars().all())
+
+
+async def update_conversation_title(
+    db: AsyncSession, conv: Conversation, *, title: str
+) -> Conversation:
+    conv.title = title.strip()[:128]
+    await db.commit()
+    await db.refresh(conv)
+    return conv
+
+
+async def delete_conversation(db: AsyncSession, conv: Conversation) -> None:
+    await db.delete(conv)
+    await db.commit()
 
 
 async def list_messages(db: AsyncSession, conv_id: UUID) -> list[Message]:

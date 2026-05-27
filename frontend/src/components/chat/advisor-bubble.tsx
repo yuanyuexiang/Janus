@@ -1,3 +1,4 @@
+import { Markdown } from "@/components/chat/markdown";
 import type { AdvisorOpinion } from "@/lib/types";
 
 const STANCE_LABEL: Record<AdvisorOpinion["stance"], string> = {
@@ -14,12 +15,19 @@ const STANCE_COLOR: Record<AdvisorOpinion["stance"], string> = {
   conditional: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
 };
 
+function skillShortName(path: string): string {
+  const last = path.split("/").pop() ?? path;
+  return last;
+}
+
 export type AdvisorBubbleProps = {
   display: string;
   role: string;
   color: string;
   streamingText: string;
   opinion: AdvisorOpinion | null;
+  activeSkills?: string[];
+  onOpenDetails?: () => void;
 };
 
 export function AdvisorBubble({
@@ -28,6 +36,8 @@ export function AdvisorBubble({
   color,
   streamingText,
   opinion,
+  activeSkills,
+  onOpenDetails,
 }: AdvisorBubbleProps) {
   const showStream = !opinion;
   return (
@@ -35,8 +45,8 @@ export function AdvisorBubble({
       className="rounded-lg border border-l-4 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
       style={{ borderLeftColor: color }}
     >
-      <header className="mb-3 flex items-baseline justify-between">
-        <div>
+      <header className="mb-3 flex items-baseline justify-between gap-3">
+        <div className="min-w-0">
           <span className="text-base font-semibold" style={{ color }}>
             {display}
           </span>
@@ -44,23 +54,56 @@ export function AdvisorBubble({
             {role}
           </span>
         </div>
-        {opinion && (
-          <div className="flex items-center gap-2 text-xs">
-            <span className={`rounded px-2 py-0.5 ${STANCE_COLOR[opinion.stance]}`}>
-              {STANCE_LABEL[opinion.stance]}
-            </span>
-            <span className="text-zinc-500">
-              置信度 {(opinion.confidence * 100).toFixed(0)}%
-            </span>
-          </div>
-        )}
+        <div className="flex shrink-0 items-center gap-2 text-xs">
+          {opinion && (
+            <>
+              <span className={`rounded px-2 py-0.5 ${STANCE_COLOR[opinion.stance]}`}>
+                {STANCE_LABEL[opinion.stance]}
+              </span>
+              <span className="text-zinc-500">
+                置信度 {(opinion.confidence * 100).toFixed(0)}%
+              </span>
+            </>
+          )}
+          {onOpenDetails && (
+            <button
+              type="button"
+              onClick={onOpenDetails}
+              className="rounded border border-zinc-200 px-1.5 py-0.5 text-[10px] uppercase text-zinc-500 hover:border-amber-600 hover:text-amber-700 dark:border-zinc-700"
+              title="查看顾问看到了什么"
+            >
+              ⓘ 详情
+            </button>
+          )}
+        </div>
       </header>
 
+      {activeSkills && activeSkills.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1">
+          {activeSkills.map((s) => (
+            <span
+              key={s}
+              title={s}
+              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+            >
+              {skillShortName(s)}
+            </span>
+          ))}
+        </div>
+      )}
+
       {showStream && (
-        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-          {streamingText}
-          <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-zinc-400 align-middle" />
-        </pre>
+        <div className="text-sm text-zinc-700 dark:text-zinc-300">
+          {streamingText ? (
+            <Markdown>{streamingText}</Markdown>
+          ) : (
+            <p className="text-zinc-400">等待发言…</p>
+          )}
+          <span
+            className="ml-0.5 inline-block h-3 w-1 animate-pulse align-middle"
+            style={{ backgroundColor: color }}
+          />
+        </div>
       )}
 
       {opinion && (

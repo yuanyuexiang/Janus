@@ -1,5 +1,6 @@
 ---
-name: common/evidence_citation
+name: evidence-citation
+description: 始终生效；每条 key_point 必须标注 source_tool，引用必须可溯源。
 version: 0.1.0
 ---
 

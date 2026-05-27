@@ -35,12 +35,3 @@ class MingGe(BaseAdvisor):
         )
 
 
-ALL_ADVISORS: dict[str, BaseAdvisor] = {}
-
-
-def _bootstrap() -> None:
-    inst = MingGe()
-    ALL_ADVISORS[inst.profile.name] = inst
-
-
-_bootstrap()

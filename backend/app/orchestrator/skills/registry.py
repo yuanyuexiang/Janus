@@ -17,23 +17,25 @@ SKILLS_ROOT = Path(__file__).parent
 
 class SkillRegistry:
     ALWAYS_ON: list[str] = [
-        "common/no_fabrication",
-        "common/evidence_citation",
-        "common/structured_opinion",
+        "common/no-fabrication",
+        "common/evidence-citation",
+        "common/structured-opinion",
     ]
 
     TRIGGER_BASED: dict[str, list[str]] = {
-        "methodology/risk_assessment": [
+        "methodology/risk-assessment": [
             "风险", "压力测试", "下行", "黑天鹅", "系统性", "波动",
         ],
         # placeholders for v2 §8.5 — Skills not yet written are silently skipped
-        # "output_templates/dcf_valuation": ["DCF", "估值", "内在价值", "自由现金流"],
-        # "output_templates/earnings_review": ["财报", "季报", "年报", "业绩"],
-        # "output_templates/industry_landscape": ["行业", "赛道", "竞争格局", "产业链"],
+        # "output-templates/dcf-valuation": ["DCF", "估值", "内在价值", "自由现金流"],
+        # "output-templates/earnings-review": ["财报", "季报", "年报", "业绩"],
+        # "output-templates/industry-landscape": ["行业", "赛道", "竞争格局", "产业链"],
     }
 
     AGENT_BOUND: dict[str, list[str]] = {
-        "ming_ge": ["agent_bound/value_methodology"],
+        "ming_ge": ["agent-bound/value-methodology"],
+        "rui_feng": ["agent-bound/trend-methodology"],
+        "ling_du": ["agent-bound/quant-backtesting"],
     }
 
     def resolve(

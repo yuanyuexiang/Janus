@@ -1,5 +1,6 @@
 ---
-name: agent_bound/value_methodology
+name: value-methodology
+description: 明哥（价值派）专用；护城河 / 盈利质量 / 估值锚三段论 + 3-5 年时间维度 + 工具纪律。
 version: 0.1.0
 ---
 
