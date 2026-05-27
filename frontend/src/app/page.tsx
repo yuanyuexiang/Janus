@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { HealthStatus } from "@/components/health-status";
 
 export default function Home() {
@@ -16,15 +18,30 @@ export default function Home() {
           </p>
         </header>
 
+        <section className="mb-6 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-zinc-500">
+            M1 · 单顾问对话
+          </h2>
+          <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+            明哥（价值派）独自上桌，可调用 <code>market_get_price</code> 工具（mock 数据）。
+          </p>
+          <Link
+            href="/chat"
+            className="inline-block rounded bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800"
+          >
+            进入对话 →
+          </Link>
+        </section>
+
         <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-zinc-500">
-            M0 · Skeleton
+            服务状态
           </h2>
           <HealthStatus />
         </section>
 
         <footer className="mt-12 text-xs text-zinc-500">
-          MVP scaffolding · 后端 FastAPI · 前端 Next.js 15
+          MVP · 后端 FastAPI · 前端 Next.js 15
         </footer>
       </div>
     </main>

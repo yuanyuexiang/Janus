@@ -1,0 +1,18 @@
+---
+name: common/evidence_citation
+version: 0.1.0
+---
+
+# Evidence Citation
+
+This skill is always active.
+
+## Rules
+
+每条 `key_point` 必须包含：
+
+- `claim`: 你的结论
+- `detail`: 支撑该结论的依据
+- `source_tool`: 提供该依据的 MCP 工具名（例如 `market_get_price`）；若该论点不来自工具，设为 `null` 并在 `detail` 中说明依据来源
+
+绝不能在 `claim` 中提及具体数字、估值倍数、价格、日期、增速，但 `source_tool` 留空——这是合规红线。
