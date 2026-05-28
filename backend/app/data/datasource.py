@@ -1,8 +1,9 @@
 """DataSource —— 多 provider 编排器，带优雅回退。
 
 provider 链优先级（从高到低）：
-  1. TushareProvider —— 当配置了 TUSHARE_TOKEN 时启用
-  2. MockProvider    —— 永远存在，作为最终兜底
+  1. ChoiceProvider  —— 当配置了 CHOICE_GATEWAY_URL 时启用（走 HTTP 调独立 gateway 服务）
+  2. TushareProvider —— 当配置了 TUSHARE_TOKEN 时启用
+  3. MockProvider    —— 永远存在，作为最终兜底
 
 每个方法依次走完链上的 provider，遇到第一个非 None 的返回值就用它；
 如果所有 provider 都没数据，返回结构化的错误信封（DataEnvelope.error）。
@@ -24,6 +25,14 @@ logger = logging.getLogger(__name__)
 def _build_chain() -> list[DataProvider]:
     settings = get_settings()
     chain: list[DataProvider] = []
+    if settings.choice_gateway_url:
+        try:
+            from app.data.providers.choice_provider import ChoiceProvider
+
+            chain.append(ChoiceProvider(gateway_url=settings.choice_gateway_url))
+            logger.info("DataSource: 已启用 ChoiceProvider (gateway=%s)", settings.choice_gateway_url)
+        except Exception:
+            logger.exception("DataSource: ChoiceProvider 初始化失败，跳过")
     if settings.tushare_token:
         try:
             from app.data.providers.tushare_provider import TushareProvider

@@ -1,25 +1,19 @@
-"""ChoiceProvider —— 东方财富 EmQuantAPI 的占位实现。
+"""ChoiceProvider —— 东方财富 Choice 数据 provider，**走 HTTP 调 choice-gateway**。
 
-状态（2026-05-28）：**尚未启用**。原因：
-
-1. `EmQuantAPI` 没发布到 PyPI —— 走 `quant.eastmoney.com` 官网按平台下载
-   tarball（需要登录）。
-2. Mac 版本仅有 x86_64 构建，且绑定特定 Python 版本；Apple Silicon
-   （M1/M2/M4）需要 Rosetta + 对应版本的 Python。
-3. SDK 用的是持久登录会话，更适合本地桌面客户端在跑 —— 服务器无头登录稳定性
-   问题已被多人吐过。
-
-后续启用路径（Windows 虚拟机或 x86 环境）：
-  1. 从东方财富官网下载 EmQuantAPI tarball
-  2. 在 venv 里执行 `pip install ./EmQuantAPI-*.tar.gz`
-  3. 在 `.env` 中配置 `CHOICE_USER` 和 `CHOICE_PASSWORD`
-  4. 取消下方 `try: from EmQuantAPI ...` 代码块的注释
-  5. 把 ChoiceProvider 加进 DataSource 链（datasource.py:_build_chain）
+设计原则（Plan C）：
+- backend 不直接依赖 EmQuantAPI SDK
+- SDK + 登录态 + 设备配额 都在独立的 choice-gateway 服务里
+- 这里只做 HTTP 客户端 + 把 gateway 的响应映射成 DataProvider 标准形状
+- gateway 连不上 / SDK 未就绪 / 网关返回错误时，统一**返回 None**
+  让 DataSource 自动落到下一个 provider（Tushare / Mock）—— 永远不抛
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any
+
+import httpx
 
 from app.data.providers.base import DataProvider
 
@@ -27,20 +21,53 @@ logger = logging.getLogger(__name__)
 
 
 class ChoiceProvider(DataProvider):
-    """未激活的占位 provider。所有方法返回 None，让 DataSource 自动落到下一个 provider。"""
-
     name = "choice"
 
-    def __init__(self, user: str, password: str) -> None:
-        self.user = user
-        self.password = password
-        # try:
-        #     from EmQuantAPI import c
-        #     result = c.start("ForceLogin=1", "", f"UserName={user},Password={password}")
-        #     if result.ErrorCode != 0:
-        #         raise RuntimeError(f"Choice 登录失败: {result.ErrorMsg}")
-        #     self._c = c
-        # except ImportError:
-        #     logger.warning("EmQuantAPI 未安装；ChoiceProvider 处于未激活状态")
-        #     self._c = None
-        logger.info("ChoiceProvider 已初始化（未激活；SDK 未安装）")
+    def __init__(self, gateway_url: str, timeout: float = 8.0) -> None:
+        self.base_url = gateway_url.rstrip("/")
+        self.timeout = timeout
+
+    async def _get(self, path: str, params: dict[str, Any] | None = None) -> dict | None:
+        """通用 GET。返回 None 让上层 fall through。"""
+        url = f"{self.base_url}{path}"
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
+                r = await client.get(url, params=params)
+        except Exception as e:
+            logger.warning("choice-gateway 不可达 %s: %s", path, e)
+            return None
+        if r.status_code == 503:
+            # SDK 未就绪（未激活 / 未登录），不告警，让 DataSource 静默落下一层
+            return None
+        if r.status_code >= 400:
+            logger.warning("choice-gateway %s 返回 %s: %s", path, r.status_code, r.text[:200])
+            return None
+        try:
+            body = r.json()
+        except Exception:
+            logger.warning("choice-gateway %s 响应不是 JSON", path)
+            return None
+        if not body.get("ok"):
+            # 业务错误（UNKNOWN_INDICATOR 等）—— 不告警，落下一层
+            return None
+        return body.get("data")
+
+    # ---------- 接口实现 ----------
+
+    async def get_price(self, symbol: str) -> dict | None:
+        return await self._get("/api/price", {"symbol": symbol})
+
+    async def get_kline(self, symbol: str, days: int = 30) -> dict | None:
+        return await self._get("/api/kline", {"symbol": symbol, "days": days})
+
+    async def get_macro_indicator(self, indicator: str) -> dict | None:
+        return await self._get("/api/macro", {"indicator": indicator})
+
+    async def get_industry_overview(self, industry: str) -> dict | None:
+        return await self._get("/api/industry", {"industry": industry})
+
+    async def search_news(self, query: str | None = None, limit: int = 20) -> dict | None:
+        return await self._get(
+            "/api/news",
+            {"query": query or "", "limit": limit},
+        )

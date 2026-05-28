@@ -47,3 +47,9 @@ backend/data/
 # Build artifacts
 dist/
 build/
+
+# Choice SDK vendored binaries（11MB dylib + .so，不进 git）
+choice-gateway/vendor/EmQuantAPI/libs/
+choice-gateway/vendor/EmQuantAPI/userInfo
+# 但保留目录结构和 Python wrapper（一段 86KB 的 .py）
+!choice-gateway/vendor/EmQuantAPI/EmQuantAPI.py

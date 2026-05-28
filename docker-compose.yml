@@ -1,4 +1,5 @@
 services:
+  # ---------- 基础设施 ----------
   postgres:
     image: postgres:16
     restart: unless-stopped
@@ -30,6 +31,53 @@ services:
       timeout: 3s
       retries: 5
 
+  # ---------- Choice 数据网关 ----------
+  # 独立服务，进程级隔离：SDK 崩了不影响 backend
+  # 强制 linux/amd64：SDK 只有 x86_64 的 .so（Apple Silicon 上自动 Rosetta 转译）
+  choice-gateway:
+    build:
+      context: ./choice-gateway
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9001:9001"
+    volumes:
+      # userInfo 令牌写在 SDK 的 libs/linux/x64 目录里 —— 必须持久化，
+      # 不然容器重建后又得短信激活。
+      - choice_session:/sdk/libs/linux/x64
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:9001/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ---------- backend ----------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      choice-gateway:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://yuanzhuo:yuanzhuo@postgres:5432/yuanzhuo
+      REDIS_URL: redis://redis:6379/0
+      # gateway 是 compose 内 DNS 名；backend 通过它走 HTTP
+      CHOICE_GATEWAY_URL: http://choice-gateway:9001
+      # 其余环境变量从 .env 读
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:8000:8000"
+
 volumes:
   pg_data:
   redis_data:
+  choice_session:
