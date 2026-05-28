@@ -76,6 +76,17 @@ class DataSource:
                 return ok(result, source=p.name)
         return err("INDUSTRY_NOT_FOUND", f"未知行业：{industry}")
 
+    async def get_kline(self, symbol: str, days: int = 30) -> DataEnvelope:
+        for p in self.providers:
+            try:
+                result = await p.get_kline(symbol, days)
+            except Exception as e:
+                logger.warning("provider %s get_kline failed: %s", p.name, e)
+                continue
+            if result is not None:
+                return ok(result, source=p.name)
+        return err("SYMBOL_NOT_FOUND", f"未知标的：{symbol}")
+
 
 @lru_cache
 def get_data_source() -> DataSource:

@@ -122,6 +122,8 @@ async def run_advisor(
 
     messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
     accumulated_text = ""
+    tokens_in = 0
+    tokens_out = 0
 
     for turn in range(MAX_TOOL_TURNS):
         yield {"type": "stage", "stage": "thinking"}
@@ -140,6 +142,10 @@ async def run_advisor(
                     yield {"type": "text", "chunk": chunk}
 
             final = await stream.get_final_message()
+
+        if final.usage:
+            tokens_in += final.usage.input_tokens or 0
+            tokens_out += final.usage.output_tokens or 0
 
         assistant_content = [b.model_dump() for b in final.content]
         messages.append({"role": "assistant", "content": assistant_content})
@@ -208,6 +214,10 @@ async def run_advisor(
             async for event in stream:
                 if event.type == "content_block_delta" and event.delta.type == "text_delta":
                     retry_text += event.delta.text
+            retry_final = await stream.get_final_message()
+        if retry_final.usage:
+            tokens_in += retry_final.usage.input_tokens or 0
+            tokens_out += retry_final.usage.output_tokens or 0
         parsed = _extract_json_object(
             retry_text, required_keys=["stance", "confidence", "summary_for_user"]
         )
@@ -239,4 +249,5 @@ async def run_advisor(
         return
 
     yield {"type": "opinion", "full": opinion.model_dump()}
+    yield {"type": "usage", "tokens_in": tokens_in, "tokens_out": tokens_out}
     yield {"type": "stage", "stage": "done"}

@@ -23,3 +23,8 @@ class DataProvider(ABC):
         """Return a basic overview for an industry: name, code, latest movers,
         average PE, top constituents, etc."""
         return None
+
+    async def get_kline(self, symbol: str, days: int = 30) -> dict | None:
+        """Return daily K-line bars for the requested symbol.
+        Shape: {symbol, name, bars: [{date, open, high, low, close, volume, pct_chg}, ...]}"""
+        return None

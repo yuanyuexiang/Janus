@@ -110,6 +110,8 @@ async def synthesize(
 
     prompt = _build_synthesis_prompt(question, opinions)
     accumulated = ""
+    tokens_in = 0
+    tokens_out = 0
 
     async with client.messages.stream(
         model=model,
@@ -123,6 +125,9 @@ async def synthesize(
                 accumulated += chunk
                 yield {"type": "synthesis_text", "chunk": chunk}
         final_msg = await stream.get_final_message()
+    if final_msg.usage:
+        tokens_in += final_msg.usage.input_tokens or 0
+        tokens_out += final_msg.usage.output_tokens or 0
 
     logger.warning(
         "Synthesizer first-pass: text_len=%d, stop_reason=%s",
@@ -164,6 +169,9 @@ async def synthesize(
                 if event.type == "content_block_delta" and event.delta.type == "text_delta":
                     retry_text += event.delta.text
             retry_final = await stream.get_final_message()
+        if retry_final.usage:
+            tokens_in += retry_final.usage.input_tokens or 0
+            tokens_out += retry_final.usage.output_tokens or 0
         logger.warning(
             "Synthesizer retry: text_len=%d, stop_reason=%s",
             len(retry_text),
@@ -192,3 +200,4 @@ async def synthesize(
         return
 
     yield {"type": "synthesis", "full": summary.model_dump()}
+    yield {"type": "synthesis_usage", "tokens_in": tokens_in, "tokens_out": tokens_out}

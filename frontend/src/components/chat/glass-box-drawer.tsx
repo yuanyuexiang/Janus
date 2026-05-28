@@ -16,6 +16,8 @@ export type GlassBoxData =
       toolCalls: ToolCall[];
       opinion: AdvisorOpinion | null;
       model?: string | null;
+      tokensIn?: number | null;
+      tokensOut?: number | null;
     }
   | {
       kind: "conductor";
@@ -23,6 +25,8 @@ export type GlassBoxData =
       streamingText: string;
       summary: CouncilSummary | null;
       model?: string | null;
+      tokensIn?: number | null;
+      tokensOut?: number | null;
     };
 
 export type GlassBoxDrawerProps = {
@@ -64,6 +68,17 @@ function AdvisorView({ data }: { data: Extract<GlassBoxData, { kind: "advisor" }
       <Section title="元信息">
         <MetaRow label="顾问" value={`${data.display} · ${data.role} (${data.name})`} />
         <MetaRow label="模型" value={data.model ?? <em className="text-zinc-400">未知</em>} />
+        {(data.tokensIn || data.tokensOut) && (
+          <MetaRow
+            label="Token 用量"
+            value={
+              <span className="font-mono text-xs">
+                in {data.tokensIn ?? 0} · out {data.tokensOut ?? 0} · total{" "}
+                {(data.tokensIn ?? 0) + (data.tokensOut ?? 0)}
+              </span>
+            }
+          />
+        )}
         <MetaRow
           label="颜色标识"
           value={
@@ -145,6 +160,17 @@ function ConductorView({
       <Section title="元信息">
         <MetaRow label="角色" value="执棋 · 主持人 / 综合者" />
         <MetaRow label="模型" value={data.model ?? <em className="text-zinc-400">未知</em>} />
+        {(data.tokensIn || data.tokensOut) && (
+          <MetaRow
+            label="Token 用量"
+            value={
+              <span className="font-mono text-xs">
+                in {data.tokensIn ?? 0} · out {data.tokensOut ?? 0} · total{" "}
+                {(data.tokensIn ?? 0) + (data.tokensOut ?? 0)}
+              </span>
+            }
+          />
+        )}
       </Section>
 
       <Section title={`参与顾问 (${data.advisorsContributed.length})`}>

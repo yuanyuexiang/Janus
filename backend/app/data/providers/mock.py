@@ -7,7 +7,10 @@ Macro / industry data is also placeholder until M3.1 wires real Tushare endpoint
 
 from __future__ import annotations
 
+import hashlib
+import random
 import re
+from datetime import date, timedelta
 
 from app.data.providers.base import DataProvider
 
@@ -234,6 +237,85 @@ class MockProvider(DataProvider):
         if not row:
             return None
         return dict(row)
+
+    async def get_kline(self, symbol: str, days: int = 30) -> dict | None:
+        sym = _normalize_symbol(symbol)
+        row = _PRICES.get(sym)
+        if not row:
+            return None
+        days = max(5, min(days, 120))  # clamp 5-120
+        bars = _generate_kline_bars(sym, anchor_close=row["price"], days=days)
+        latest = bars[-1]
+        first = bars[0]
+        change_pct = (latest["close"] - first["close"]) / first["close"] * 100.0
+        return {
+            "symbol": sym,
+            "name": row["name"],
+            "days": days,
+            "anchor_close": row["price"],
+            "summary": {
+                "range_high": max(b["high"] for b in bars),
+                "range_low": min(b["low"] for b in bars),
+                "range_pct_chg": round(change_pct, 2),
+                "avg_volume": int(sum(b["volume"] for b in bars) / len(bars)),
+            },
+            "bars": bars,
+        }
+
+
+def _generate_kline_bars(
+    symbol: str, *, anchor_close: float, days: int
+) -> list[dict]:
+    """Deterministic pseudo-OHLCV walk seeded by symbol — same input always yields same series.
+
+    We anchor the *latest* bar's close to `anchor_close` (matches the price-snapshot mock)
+    and walk backwards with daily log-returns drawn from a symbol-seeded RNG.
+    """
+    seed = int(hashlib.md5(symbol.encode("utf-8")).hexdigest()[:8], 16)
+    rng = random.Random(seed)
+
+    # daily log-return std: ~1.8% for A-shares, ~1.5% for US mega-caps; close enough for mock
+    daily_sigma = 0.018
+
+    closes: list[float] = [anchor_close]
+    for _ in range(days - 1):
+        # walking BACKWARDS: previous close = today's close / (1+ret)
+        ret = rng.gauss(0, daily_sigma)
+        prev = closes[-1] / (1.0 + ret)
+        closes.append(prev)
+    closes.reverse()  # oldest first
+
+    today = date.today()
+    # skip weekends crudely
+    dates: list[date] = []
+    cur = today
+    while len(dates) < days:
+        if cur.weekday() < 5:
+            dates.append(cur)
+        cur -= timedelta(days=1)
+    dates.reverse()
+
+    bars: list[dict] = []
+    prev_close: float | None = None
+    for d, c in zip(dates, closes):
+        open_ = c * (1 + rng.gauss(0, daily_sigma / 2))
+        high = max(open_, c) * (1 + abs(rng.gauss(0, daily_sigma / 2)))
+        low = min(open_, c) * (1 - abs(rng.gauss(0, daily_sigma / 2)))
+        volume = int(rng.uniform(0.7, 1.4) * 1_500_000)
+        pct_chg = ((c - prev_close) / prev_close * 100.0) if prev_close else 0.0
+        bars.append(
+            {
+                "date": d.isoformat(),
+                "open": round(open_, 2),
+                "high": round(high, 2),
+                "low": round(low, 2),
+                "close": round(c, 2),
+                "volume": volume,
+                "pct_chg": round(pct_chg, 2),
+            }
+        )
+        prev_close = c
+    return bars
 
 
 def known_macro_indicators() -> list[str]:

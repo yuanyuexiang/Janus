@@ -39,6 +39,8 @@ class MessageItem(BaseModel):
     tool_calls: list
     active_skills: list
     model: str | None
+    tokens_in: int | None
+    tokens_out: int | None
     created_at: datetime
 
 
@@ -86,6 +88,8 @@ async def get_one(conv_id: UUID, db: AsyncSession = Depends(get_db)) -> Conversa
                 tool_calls=m.tool_calls or [],
                 active_skills=m.active_skills or [],
                 model=m.model,
+                tokens_in=m.tokens_in,
+                tokens_out=m.tokens_out,
                 created_at=m.created_at,
             )
             for m in msgs

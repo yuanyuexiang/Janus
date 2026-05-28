@@ -62,8 +62,10 @@ export type ChatEvent =
     }
   | { type: "opinion"; full: AdvisorOpinion; advisor?: string }
   | { type: "advisor_done"; advisor: string }
+  | { type: "usage"; tokens_in: number; tokens_out: number; advisor?: string }
   | { type: "synthesis_start"; opinion_count: number }
   | { type: "synthesis_text"; chunk: string }
   | { type: "synthesis"; full: CouncilSummary }
+  | { type: "synthesis_usage"; tokens_in: number; tokens_out: number }
   | { type: "council_done" }
   | { type: "error"; code: string; message: string; advisor?: string };

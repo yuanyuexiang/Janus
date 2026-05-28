@@ -4,11 +4,17 @@
 - `mini`: 3-advisor mini council + conductor synthesis (M2 default)
 """
 
+import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
 from typing import Literal
 from uuid import UUID
+
+# Strong-ref set to keep fire-and-forget tasks alive until they finish.
+# Python's asyncio task references are weak by default — without this set,
+# the auto-title task can be garbage collected before it completes.
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -25,6 +31,7 @@ from app.db.session import SessionLocal
 from app.orchestrator.advisors import get_advisor, get_full_council, get_mini_council
 from app.orchestrator.conductor import run_council
 from app.orchestrator.runner import run_advisor
+from app.orchestrator.titler import auto_title
 
 router = APIRouter(prefix="/api", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -53,6 +60,8 @@ class _AdvisorAccum:
         self.tool_calls: list[dict] = []
         self.opinion: dict | None = None
         self.active_skills: list[str] = []
+        self.tokens_in: int = 0
+        self.tokens_out: int = 0
 
 
 async def _stream(req: ChatRequest) -> AsyncIterator[str]:
@@ -75,6 +84,7 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
     async with SessionLocal() as db:
         try:
             member = await get_or_create_demo_member(db)
+            is_new_conv = req.conversation_id is None
             if req.conversation_id:
                 conv = await get_conversation(db, req.conversation_id)
                 if conv is None or conv.member_id != member.id:
@@ -108,6 +118,7 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
         }
         synthesis_text = ""
         synthesis_full: dict | None = None
+        nonlocal_synthesis_tokens: dict[str, int] = {"in": 0, "out": 0}
 
         try:
             if req.mode == "solo":
@@ -144,11 +155,17 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
                                 break
                     elif etype == "opinion":
                         acc.opinion = event.get("full")
+                    elif etype == "usage":
+                        acc.tokens_in = event.get("tokens_in", 0)
+                        acc.tokens_out = event.get("tokens_out", 0)
 
                 if etype == "synthesis_text":
                     synthesis_text += event.get("chunk", "")
                 elif etype == "synthesis":
                     synthesis_full = event.get("full")
+                elif etype == "synthesis_usage":
+                    nonlocal_synthesis_tokens["in"] = event.get("tokens_in", 0)
+                    nonlocal_synthesis_tokens["out"] = event.get("tokens_out", 0)
 
                 yield _sse(event)
 
@@ -166,6 +183,8 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
                     tool_calls=acc.tool_calls,
                     active_skills=acc.active_skills,
                     model=acc.model,
+                    tokens_in=acc.tokens_in or None,
+                    tokens_out=acc.tokens_out or None,
                 )
 
             if req.mode in ("mini", "full") and (synthesis_text or synthesis_full):
@@ -178,7 +197,24 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
                     structured=synthesis_full,
                     tool_calls=[],
                     model=settings.conductor_model,
+                    tokens_in=nonlocal_synthesis_tokens["in"] or None,
+                    tokens_out=nonlocal_synthesis_tokens["out"] or None,
                 )
+
+            # Background: auto-title freshly created conversations
+            if is_new_conv:
+                hint: str | None = None
+                if synthesis_full and synthesis_full.get("final_summary"):
+                    hint = synthesis_full["final_summary"]
+                else:
+                    for acc in accums.values():
+                        if acc.opinion and acc.opinion.get("summary_for_user"):
+                            hint = acc.opinion["summary_for_user"]
+                            break
+                logger.warning("scheduling auto_title for new conv %s hint=%r", conv.id, hint[:40] if hint else None)
+                task = asyncio.create_task(auto_title(conv.id, req.question, hint))
+                _BACKGROUND_TASKS.add(task)
+                task.add_done_callback(_BACKGROUND_TASKS.discard)
         except Exception as e:
             logger.exception("chat stream failed")
             yield _sse({"type": "error", "code": "INTERNAL", "message": f"{type(e).__name__}: {e}"})

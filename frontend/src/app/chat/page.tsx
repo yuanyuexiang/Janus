@@ -43,12 +43,16 @@ type AdvisorState = {
   opinion: AdvisorOpinion | null;
   activeSkills: string[];
   model?: string | null;
+  tokensIn?: number | null;
+  tokensOut?: number | null;
 };
 
 type ConductorState = {
   streamingText: string;
   summary: CouncilSummary | null;
   model?: string | null;
+  tokensIn?: number | null;
+  tokensOut?: number | null;
 };
 
 type CouncilTurn = {
@@ -146,6 +150,8 @@ function reconstructTurns(messages: StoredMessage[]): Turn[] {
         opinion: m.structured as AdvisorOpinion | null,
         activeSkills: m.active_skills ?? [],
         model: m.model,
+        tokensIn: m.tokens_in,
+        tokensOut: m.tokens_out,
       };
     } else if (m.role === "conductor") {
       if (!current) {
@@ -162,6 +168,8 @@ function reconstructTurns(messages: StoredMessage[]): Turn[] {
         streamingText: m.content ?? "",
         summary: (m.structured as CouncilSummary | null) ?? null,
         model: m.model,
+        tokensIn: m.tokens_in,
+        tokensOut: m.tokens_out,
       };
     }
   }
@@ -334,6 +342,30 @@ export default function ChatPage() {
             });
             break;
           }
+          case "usage": {
+            const name = ev.advisor ?? "ming_ge";
+            patchCouncil((c) => {
+              const a = c.advisors[name];
+              if (a) {
+                c.advisors[name] = {
+                  ...a,
+                  tokensIn: ev.tokens_in,
+                  tokensOut: ev.tokens_out,
+                };
+              }
+            });
+            break;
+          }
+          case "synthesis_usage":
+            patchCouncil((c) => {
+              const cur = c.conductor ?? { streamingText: "", summary: null };
+              c.conductor = {
+                ...cur,
+                tokensIn: ev.tokens_in,
+                tokensOut: ev.tokens_out,
+              };
+            });
+            break;
           case "synthesis_start":
             setStage("synthesis");
             setStageAdvisor(null);
@@ -493,6 +525,8 @@ export default function ChatPage() {
                                     toolCalls: a.toolCalls,
                                     opinion: a.opinion,
                                     model: a.model,
+                                    tokensIn: a.tokensIn,
+                                    tokensOut: a.tokensOut,
                                   })
                                 }
                               />
@@ -513,6 +547,8 @@ export default function ChatPage() {
                               streamingText: cond.streamingText,
                               summary: cond.summary,
                               model: cond.model,
+                              tokensIn: cond.tokensIn,
+                              tokensOut: cond.tokensOut,
                             });
                           }}
                         />

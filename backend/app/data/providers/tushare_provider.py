@@ -3,16 +3,22 @@
 Tushare Pro uses a single JSON-RPC-ish POST endpoint where `api_name`, `token`,
 `params`, and `fields` are body fields. Reference: https://tushare.pro/document/2
 
-M3 v1 implements:
-  - get_price → daily_basic (PE/PB/close/turnover_rate/circ_mv)
+Endpoints covered:
+  - get_price            → daily_basic + daily      (often requires score≥600)
+  - get_macro_indicator  → cn_m / cn_ppi / cn_pmi / sf_month  (free tier OK)
 
-Macro / industry endpoints come in M3.1 once we know which exact ones to call.
+Endpoints we attempted but the default-tier token can't reach (40203 perm error)
+fall through to MockProvider transparently:
+  - stock_basic / daily / daily_basic / cn_cpi / cn_gdp / index_basic / index_daily
 """
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import re
+import time
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -45,15 +51,30 @@ def _normalize_ts_code(symbol: str) -> str | None:
 class TushareProvider(DataProvider):
     name = "tushare"
 
-    def __init__(self, token: str, timeout: float = 5.0) -> None:
+    # In-process cache: tushare's free tier limits most endpoints to 1 req/hour,
+    # so we cache results for an hour by (api_name, sorted_params).
+    _cache: dict[str, tuple[float, list[dict]]] = {}
+    _cache_lock = asyncio.Lock()
+
+    def __init__(self, token: str, timeout: float = 5.0, cache_ttl: float = 3600.0) -> None:
         self.token = token
         self.timeout = timeout
-        # Cache `name` once we successfully fetch it (small dict, no eviction needed for MVP)
+        self.cache_ttl = cache_ttl
         self._name_cache: dict[str, str] = {}
 
+    @staticmethod
+    def _cache_key(api_name: str, params: dict) -> str:
+        return f"{api_name}:{json.dumps(params, sort_keys=True, ensure_ascii=False)}"
+
     async def _call(self, api_name: str, params: dict[str, Any], fields: str = "") -> list[dict]:
-        """Low-level Tushare call. Returns list of dicts keyed by field names.
-        Raises on HTTP error or non-zero code."""
+        """Low-level Tushare call with 1-hour cache. Raises on HTTP error or non-zero code."""
+        key = self._cache_key(api_name, params)
+        now = time.monotonic()
+        async with self._cache_lock:
+            cached = self._cache.get(key)
+            if cached and now - cached[0] < self.cache_ttl:
+                return cached[1]
+
         payload = {
             "api_name": api_name,
             "token": self.token,
@@ -69,7 +90,11 @@ class TushareProvider(DataProvider):
         data = body.get("data") or {}
         cols = data.get("fields") or []
         items = data.get("items") or []
-        return [dict(zip(cols, row)) for row in items]
+        rows = [dict(zip(cols, row)) for row in items]
+
+        async with self._cache_lock:
+            self._cache[key] = (now, rows)
+        return rows
 
     async def _resolve_name(self, ts_code: str) -> str | None:
         if ts_code in self._name_cache:
@@ -158,4 +183,132 @@ class TushareProvider(DataProvider):
             "circ_mv": latest.get("circ_mv"),
         }
 
-    # Macro & industry coverage deferred to M3.1; let MockProvider handle them.
+    # ---------- Macro ----------
+
+    async def get_macro_indicator(self, indicator: str) -> dict | None:
+        """Wire the indicators we have Tushare access to. Others (cpi/gdp/fx/etc)
+        return None so MockProvider can answer them.
+        """
+        key = indicator.lower().strip()
+        try:
+            if key == "m2":
+                return await self._fetch_m2()
+            if key == "ppi":
+                return await self._fetch_ppi()
+            if key == "pmi_manufacturing":
+                return await self._fetch_pmi_manufacturing()
+            if key == "social_financing":
+                return await self._fetch_social_financing()
+        except Exception as e:
+            logger.warning("tushare macro %s failed: %s", key, e)
+            return None
+        return None  # fall through to next provider
+
+    async def _fetch_m2(self) -> dict | None:
+        rows = await self._call(
+            "cn_m", params={}, fields="month,m2_yoy,m1_yoy,m0_yoy"
+        )
+        if not rows:
+            return None
+        rows.sort(key=lambda r: r.get("month") or "", reverse=True)
+        latest = rows[0]
+        prev = rows[1] if len(rows) > 1 else None
+        m2 = latest.get("m2_yoy")
+        prev_m2 = prev.get("m2_yoy") if prev else None
+        trend = _describe_yoy_trend("M2", m2, prev_m2)
+        return {
+            "name": "M2 同比",
+            "value": m2,
+            "unit": "%",
+            "period": _format_month(latest.get("month")),
+            "trend": trend,
+            "detail": {
+                "m1_yoy": latest.get("m1_yoy"),
+                "m0_yoy": latest.get("m0_yoy"),
+            },
+        }
+
+    async def _fetch_ppi(self) -> dict | None:
+        rows = await self._call(
+            "cn_ppi", params={}, fields="month,ppi_yoy,ppi_mp_yoy"
+        )
+        if not rows:
+            return None
+        rows.sort(key=lambda r: r.get("month") or "", reverse=True)
+        latest = rows[0]
+        prev = rows[1] if len(rows) > 1 else None
+        ppi = latest.get("ppi_yoy")
+        trend = _describe_yoy_trend("PPI", ppi, prev.get("ppi_yoy") if prev else None)
+        return {
+            "name": "PPI 同比",
+            "value": ppi,
+            "unit": "%",
+            "period": _format_month(latest.get("month")),
+            "trend": trend,
+            "detail": {"生产资料 yoy": latest.get("ppi_mp_yoy")},
+        }
+
+    async def _fetch_pmi_manufacturing(self) -> dict | None:
+        rows = await self._call(
+            "cn_pmi", params={}, fields="month,pmi010000"
+        )
+        if not rows:
+            return None
+        rows.sort(key=lambda r: r.get("month") or "", reverse=True)
+        latest = rows[0]
+        prev = rows[1] if len(rows) > 1 else None
+        pmi = latest.get("pmi010000")
+        prev_pmi = prev.get("pmi010000") if prev else None
+        if pmi is None:
+            return None
+        # PMI sits around 50; "trend" describes expansion vs contraction
+        if pmi >= 50.5:
+            phase = "扩张区间"
+        elif pmi >= 49.5:
+            phase = "荣枯线附近"
+        else:
+            phase = "收缩区间"
+        delta = ""
+        if prev_pmi is not None:
+            delta = f"；环比 {pmi - prev_pmi:+.1f}"
+        trend = f"{phase}{delta}"
+        return {
+            "name": "制造业 PMI",
+            "value": pmi,
+            "unit": "指数",
+            "period": _format_month(latest.get("month")),
+            "trend": trend,
+        }
+
+    async def _fetch_social_financing(self) -> dict | None:
+        rows = await self._call(
+            "sf_month", params={}, fields="month,inc_month,inc_cumval"
+        )
+        if not rows:
+            return None
+        rows.sort(key=lambda r: r.get("month") or "", reverse=True)
+        latest = rows[0]
+        return {
+            "name": "社会融资规模",
+            "value": latest.get("inc_month"),
+            "unit": "亿元（当月新增）",
+            "period": _format_month(latest.get("month")),
+            "trend": f"当月新增 {latest.get('inc_month')} 亿元；累计 {latest.get('inc_cumval')} 亿元",
+        }
+
+
+def _format_month(yyyymm: str | None) -> str:
+    if not yyyymm or len(str(yyyymm)) != 6:
+        return str(yyyymm or "")
+    s = str(yyyymm)
+    return f"{s[:4]}-{s[4:]}"
+
+
+def _describe_yoy_trend(name: str, current: float | None, prev: float | None) -> str:
+    if current is None:
+        return ""
+    if prev is None:
+        return f"{name} 同比 {current:.1f}%"
+    delta = current - prev
+    direction = "上升" if delta > 0.05 else "下降" if delta < -0.05 else "持平"
+    return f"环比{direction} ({delta:+.1f} pp)"

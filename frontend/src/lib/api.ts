@@ -30,6 +30,8 @@ export type StoredMessage = {
   }>;
   active_skills: string[];
   model: string | null;
+  tokens_in: number | null;
+  tokens_out: number | null;
   created_at: string;
 };
 
