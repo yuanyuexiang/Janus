@@ -11,8 +11,7 @@ from alembic import context
 # access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
+# 解析配置文件里的 Python logging 配置；这一行实际上是把 logger 装起来。
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
@@ -30,16 +29,12 @@ config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
+    """以「离线」模式跑迁移。
 
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
+    这种模式只用 URL 配置 context，不真正建连接（建也行，只是没必要）。
+    跳过 Engine 创建后甚至不需要本地装 DBAPI。
 
-    Calls to context.execute() here emit the given string to the
-    script output.
-
+    `context.execute()` 在这里把 SQL 字符串输出到 stdout / 脚本里。
     """
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
@@ -61,10 +56,7 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    """In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
+    """这种模式下必须创建 Engine 并把连接挂到 alembic context 上。"""
 
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
@@ -79,7 +71,7 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
+    """以「在线」模式跑迁移：真正建立数据库连接。"""
 
     asyncio.run(run_async_migrations())
 

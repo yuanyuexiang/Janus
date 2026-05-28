@@ -55,7 +55,7 @@ class Conversation(Base):
         PG_UUID(as_uuid=True), ForeignKey("members.id", ondelete="SET NULL")
     )
     title: Mapped[str | None] = mapped_column(String(128))
-    mode: Mapped[str | None] = mapped_column(String(16))  # full / mini / solo:<name>
+    mode: Mapped[str | None] = mapped_column(String(16))  # 取值 full / mini / solo:<name>
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -74,7 +74,7 @@ class Message(Base):
     conversation_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE")
     )
-    role: Mapped[str] = mapped_column(String(32))  # user / advisor:<name> / conductor / system
+    role: Mapped[str] = mapped_column(String(32))  # 取值 user / advisor:<name> / conductor / system
     agent: Mapped[str | None] = mapped_column(String(32))
     content: Mapped[str | None] = mapped_column(Text)
     structured: Mapped[dict | None] = mapped_column(JSONB)

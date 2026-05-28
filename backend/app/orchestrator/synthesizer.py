@@ -1,6 +1,6 @@
-"""Conductor's synthesis: given N advisor opinions, produce a CouncilSummary.
+"""主持人综合：拿到 N 份 AdvisorOpinion，产出一份 CouncilSummary。
 
-Streams the conductor's user-facing prose; emits the structured summary at the end.
+边推理边把主持人的散文流式返回给用户阅读；最后才结构化抛 summary 事件。
 """
 
 from __future__ import annotations
@@ -91,9 +91,9 @@ async def synthesize(
     client: AsyncAnthropic | None = None,
     model: str | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
-    """Yield synthesis events:
-      {"type": "synthesis_text", "chunk": "..."}        # streamed prose
-      {"type": "synthesis", "full": CouncilSummary}     # final structured
+    """产出综合事件流：
+      {"type": "synthesis_text", "chunk": "..."}        # 主持人散文流
+      {"type": "synthesis", "full": CouncilSummary}     # 最终结构化结论
       {"type": "error", "code": "...", "message": "..."}
     """
     settings = get_settings()
@@ -104,7 +104,7 @@ async def synthesize(
         yield {
             "type": "error",
             "code": "NO_OPINIONS",
-            "message": "No advisor opinions to synthesize",
+            "message": "没有可综合的顾问观点",
         }
         return
 
@@ -130,7 +130,7 @@ async def synthesize(
         tokens_out += final_msg.usage.output_tokens or 0
 
     logger.warning(
-        "Synthesizer first-pass: text_len=%d, stop_reason=%s",
+        "综合第一轮：text_len=%d, stop_reason=%s",
         len(accumulated),
         final_msg.stop_reason,
     )
@@ -140,12 +140,12 @@ async def synthesize(
     )
     if parsed is None:
         logger.warning(
-            "Synthesis JSON parse failed (first try, text_len=%d, stop=%s); retrying JSON-only.",
+            "综合 JSON 解析失败（首轮，text_len=%d, stop=%s）；切换到「只要 JSON」重试",
             len(accumulated),
             final_msg.stop_reason,
         )
-        # Clean retry: fresh prompt that explicitly asks for JSON only,
-        # without contaminating the conversation with the truncated first attempt.
+        # 干净的重试：用一个全新的 prompt 显式要求只输出 JSON，
+        # 不把可能被截断的首轮回复带进上下文污染输出。
         retry_messages = [
             {
                 "role": "user",
@@ -173,7 +173,7 @@ async def synthesize(
             tokens_in += retry_final.usage.input_tokens or 0
             tokens_out += retry_final.usage.output_tokens or 0
         logger.warning(
-            "Synthesizer retry: text_len=%d, stop_reason=%s",
+            "综合重试：text_len=%d, stop_reason=%s",
             len(retry_text),
             retry_final.stop_reason,
         )
@@ -185,7 +185,7 @@ async def synthesize(
         yield {
             "type": "error",
             "code": "SYNTHESIS_PARSE_FAILED",
-            "message": "Conductor did not produce a valid CouncilSummary JSON after retry",
+            "message": "主持人重试后仍未输出合法的 CouncilSummary JSON",
         }
         return
 

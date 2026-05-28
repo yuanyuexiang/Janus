@@ -8,16 +8,15 @@ const STANCE_LABEL: Record<AdvisorOpinion["stance"], string> = {
   conditional: "有条件",
 };
 
-const STANCE_COLOR: Record<AdvisorOpinion["stance"], string> = {
-  bullish: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-  neutral: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  bearish: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-  conditional: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+const STANCE_STYLE: Record<AdvisorOpinion["stance"], string> = {
+  bullish: "bg-sage-500/15 text-sage-700 ring-sage-500/30 dark:bg-sage-500/20 dark:text-sage-300 dark:ring-sage-300/30",
+  neutral: "bg-walnut-50/10 text-walnut-500 ring-walnut-50/30 dark:bg-parchment-100/10 dark:text-parchment-200 dark:ring-parchment-300/20",
+  bearish: "bg-vermillion-500/15 text-vermillion-700 ring-vermillion-500/30 dark:bg-vermillion-500/25 dark:text-vermillion-300 dark:ring-vermillion-300/30",
+  conditional: "bg-gilt-500/15 text-gilt-900 ring-gilt-500/35 dark:bg-gilt-500/20 dark:text-gilt-100 dark:ring-gilt-300/30",
 };
 
 function skillShortName(path: string): string {
-  const last = path.split("/").pop() ?? path;
-  return last;
+  return path.split("/").pop() ?? path;
 }
 
 export type AdvisorBubbleProps = {
@@ -42,49 +41,56 @@ export function AdvisorBubble({
   const showStream = !opinion;
   return (
     <article
-      className="rounded-lg border border-l-4 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
-      style={{ borderLeftColor: color }}
+      className="relative rounded-sm border border-parchment-300/70 bg-parchment-100/40 px-6 py-5 shadow-paper transition-shadow hover:shadow-paper-lg dark:border-walnut-300/30 dark:bg-walnut-700/40"
     >
-      <header className="mb-3 flex items-baseline justify-between gap-3">
-        <div className="min-w-0">
-          <span className="text-base font-semibold" style={{ color }}>
+      {/* 印章 / 顾问标识：左上角竖排，半透明衬底 */}
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-baseline gap-3">
+          <span
+            className="font-display text-xl font-medium leading-none"
+            style={{ color }}
+          >
             {display}
           </span>
-          <span className="ml-2 text-xs uppercase tracking-wide text-zinc-500">
+          <span
+            className="font-display text-[11px] uppercase tracking-[0.2em]"
+            style={{ color }}
+          >
             {role}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2 text-xs">
+        <div className="flex shrink-0 items-center gap-2">
           {opinion && (
             <>
-              <span className={`rounded px-2 py-0.5 ${STANCE_COLOR[opinion.stance]}`}>
+              <span
+                className={`inline-flex items-center rounded-sm px-2 py-0.5 font-display text-[11px] ring-1 ring-inset ${STANCE_STYLE[opinion.stance]}`}
+              >
                 {STANCE_LABEL[opinion.stance]}
               </span>
-              <span className="text-zinc-500">
-                置信度 {(opinion.confidence * 100).toFixed(0)}%
-              </span>
+              <ConfidenceMeter value={opinion.confidence} />
             </>
           )}
           {onOpenDetails && (
             <button
               type="button"
               onClick={onOpenDetails}
-              className="rounded border border-zinc-200 px-1.5 py-0.5 text-[10px] uppercase text-zinc-500 hover:border-amber-600 hover:text-amber-700 dark:border-zinc-700"
+              className="rounded-sm border border-parchment-300/80 px-1.5 py-0.5 font-display text-[10px] tracking-wider text-walnut-100 transition-colors hover:border-gilt-500 hover:text-gilt-700 dark:border-walnut-300/40 dark:text-parchment-200 dark:hover:border-gilt-300 dark:hover:text-gilt-100"
               title="查看顾问看到了什么"
             >
-              ⓘ 详情
+              详情
             </button>
           )}
         </div>
-      </header>
+      </div>
 
+      {/* 已激活的 Skills 标签 —— 安静地挂在 header 下面 */}
       {activeSkills && activeSkills.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-1">
+        <div className="mb-4 -mt-2 flex flex-wrap gap-1">
           {activeSkills.map((s) => (
             <span
               key={s}
               title={s}
-              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+              className="rounded-sm bg-parchment-200/60 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-walnut-50 dark:bg-walnut-300/30 dark:text-parchment-200"
             >
               {skillShortName(s)}
             </span>
@@ -92,78 +98,122 @@ export function AdvisorBubble({
         </div>
       )}
 
-      {showStream && (
-        <div className="text-sm text-zinc-700 dark:text-zinc-300">
+      {showStream ? (
+        <div className="text-[14px] leading-7 text-ink-900 dark:text-parchment-100">
           {streamingText ? (
             <Markdown>{streamingText}</Markdown>
           ) : (
-            <p className="text-zinc-400">等待发言…</p>
+            <p className="font-display italic text-walnut-50/60 dark:text-parchment-200/50">
+              静候发言…
+            </p>
           )}
           <span
-            className="ml-0.5 inline-block h-3 w-1 animate-pulse align-middle"
+            className="ml-0.5 inline-block h-3 w-[2px] animate-pulse align-middle"
             style={{ backgroundColor: color }}
           />
         </div>
-      )}
+      ) : (
+        opinion && (
+          <div className="space-y-5">
+            {/* 总结：宋体引用样式 */}
+            <blockquote
+              className="border-l-2 border-gilt-500/60 pl-4 font-display text-[15px] leading-relaxed not-italic text-ink-900 dark:text-parchment-100"
+            >
+              {opinion.summary_for_user}
+            </blockquote>
 
-      {opinion && (
-        <div className="space-y-4">
-          <p className="text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
-            {opinion.summary_for_user}
-          </p>
+            {opinion.key_points.length > 0 && (
+              <Section title="核心观点">
+                <ul className="space-y-2.5">
+                  {opinion.key_points.map((p, i) => (
+                    <li key={i}>
+                      <div className="font-medium text-ink-900 dark:text-parchment-100">
+                        · {p.claim}
+                      </div>
+                      <div className="mt-0.5 ml-3 text-[13.5px] leading-relaxed text-ink-600 dark:text-parchment-200/80">
+                        {p.detail}
+                      </div>
+                      {p.source_tool && (
+                        <code className="ml-3 text-[11px] text-walnut-50 dark:text-parchment-300/70">
+                          source: {p.source_tool}
+                        </code>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            )}
 
-          {opinion.key_points.length > 0 && (
-            <section>
-              <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                核心观点
-              </h3>
-              <ul className="space-y-2">
-                {opinion.key_points.map((p, i) => (
-                  <li key={i} className="text-sm">
-                    <div className="font-medium text-zinc-800 dark:text-zinc-200">
-                      · {p.claim}
-                    </div>
-                    <div className="ml-2 text-zinc-600 dark:text-zinc-400">
-                      {p.detail}
-                    </div>
-                    {p.source_tool && (
-                      <code className="ml-2 text-xs text-zinc-400">
-                        source: {p.source_tool}
-                      </code>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+            {opinion.concerns.length > 0 && (
+              <Section title="主要风险" tone="vermillion">
+                <ul className="list-inside list-[square] marker:text-vermillion-500 space-y-1 text-[13.5px] leading-relaxed text-ink-600 dark:text-parchment-200/80">
+                  {opinion.concerns.map((c, i) => (
+                    <li key={i}>{c}</li>
+                  ))}
+                </ul>
+              </Section>
+            )}
 
-          {opinion.concerns.length > 0 && (
-            <section>
-              <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                主要风险
-              </h3>
-              <ul className="list-inside list-disc space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                {opinion.concerns.map((c, i) => (
-                  <li key={i}>{c}</li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {opinion.what_could_change_my_mind.length > 0 && (
-            <section>
-              <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                变心条件
-              </h3>
-              <ul className="list-inside list-disc space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                {opinion.what_could_change_my_mind.map((c, i) => (
-                  <li key={i}>{c}</li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
+            {opinion.what_could_change_my_mind.length > 0 && (
+              <Section title="变心条件">
+                <ul className="list-inside list-[square] marker:text-gilt-500 space-y-1 text-[13.5px] leading-relaxed text-ink-600 dark:text-parchment-200/80">
+                  {opinion.what_could_change_my_mind.map((c, i) => (
+                    <li key={i}>{c}</li>
+                  ))}
+                </ul>
+              </Section>
+            )}
+          </div>
+        )
       )}
     </article>
+  );
+}
+
+function Section({
+  title,
+  tone,
+  children,
+}: {
+  title: string;
+  tone?: "vermillion";
+  children: React.ReactNode;
+}) {
+  const titleColor =
+    tone === "vermillion"
+      ? "text-vermillion-700 dark:text-vermillion-300"
+      : "text-walnut-100 dark:text-parchment-200/80";
+  return (
+    <section>
+      <h3
+        className={`mb-2 font-display text-[11px] uppercase tracking-[0.25em] ${titleColor}`}
+      >
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+function ConfidenceMeter({ value }: { value: number }) {
+  const pct = Math.max(0, Math.min(1, value));
+  const dots = 5;
+  const filled = Math.round(pct * dots);
+  return (
+    <span className="flex items-center gap-1.5" title={`置信度 ${(pct * 100).toFixed(0)}%`}>
+      <span className="font-display text-[10px] uppercase tracking-wider text-walnut-50 dark:text-parchment-300/70">
+        信
+      </span>
+      <span className="flex gap-[2px]">
+        {Array.from({ length: dots }).map((_, i) => (
+          <span
+            key={i}
+            className={`h-1 w-1 rounded-full ${
+              i < filled ? "bg-gilt-500" : "bg-parchment-300/80 dark:bg-walnut-300/40"
+            }`}
+          />
+        ))}
+      </span>
+    </span>
   );
 }

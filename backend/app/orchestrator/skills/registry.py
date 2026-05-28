@@ -1,10 +1,10 @@
-"""Skill registry: resolves which Skill packs to inject into an advisor's system prompt.
+"""Skill 注册表：解析每次顾问发言要注入哪些 Skill 包到 system prompt。
 
-Each Skill lives in a directory containing SKILL.md. Three load strategies:
+每个 Skill 是一个目录，里面放 SKILL.md。三种加载策略：
 
-- always-on: every advisor turn loads it (compliance / output protocol)
-- trigger-based: keyword match against question + task context
-- agent-bound: declared by the advisor itself
+- always-on：每次发言都加载（合规规则 / 输出协议）
+- trigger-based：根据 question + 任务上下文做关键词匹配
+- agent-bound：由顾问自己声明绑定哪些 Skill
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ class SkillRegistry:
         "methodology/risk-assessment": [
             "风险", "压力测试", "下行", "黑天鹅", "系统性", "波动",
         ],
-        # placeholders for v2 §8.5 — Skills not yet written are silently skipped
+        # 占位：v2 §8.5 规划的 Skill —— 文件未写时会被静默跳过
         # "output-templates/dcf-valuation": ["DCF", "估值", "内在价值", "自由现金流"],
         # "output-templates/earnings-review": ["财报", "季报", "年报", "业绩"],
         # "output-templates/industry-landscape": ["行业", "赛道", "竞争格局", "产业链"],
@@ -58,7 +58,7 @@ class SkillRegistry:
         if force_skills:
             skills.extend(force_skills)
 
-        # de-dup preserving order; drop missing
+        # 保持顺序去重；丢弃磁盘上不存在的 Skill
         seen: set[str] = set()
         out: list[str] = []
         for s in skills:

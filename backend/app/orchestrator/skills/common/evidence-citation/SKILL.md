@@ -4,11 +4,11 @@ description: 始终生效；每条 key_point 必须标注 source_tool，引用�
 version: 0.1.0
 ---
 
-# Evidence Citation
+# 证据引用
 
-This skill is always active.
+此 Skill 始终生效。
 
-## Rules
+## 规则
 
 每条 `key_point` 必须包含：
 

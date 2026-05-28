@@ -9,7 +9,7 @@ class LengChuan(BaseAdvisor):
         color="#8B3A3A",
         tagline="先问最坏的情况能多坏",
     )
-    allowed_tools = ["market_get_price"]
+    allowed_tools = ["market_get_price", "news_search"]
 
     def system_prompt(self) -> str:
         return (
@@ -28,6 +28,7 @@ class LengChuan(BaseAdvisor):
             "\n"
             "## 工具偏好\n"
             "- 你可以使用 `market_get_price` 取标的快照，作为风险情景的锚\n"
+            "- **强烈推荐** 使用 `news_search(query)` 扫描近 48 小时相关新闻，挖掘市场未充分定价的负面信号\n"
             "- 你的核心价值是「找漏洞」，所以多一些独立查证、少一些重复别人的结论\n"
             "\n"
             "## 输出导向\n"

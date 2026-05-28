@@ -36,7 +36,7 @@ export async function* streamChat(
     if (done) break;
     buf += decoder.decode(value, { stream: true });
 
-    // SSE events are separated by blank lines
+    // SSE 协议规定不同事件之间用空行分隔
     let sep: number;
     while ((sep = buf.indexOf("\n\n")) !== -1) {
       const frame = buf.slice(0, sep);
@@ -52,7 +52,7 @@ export async function* streamChat(
         const parsed = JSON.parse(dataLines.join("\n")) as ChatEvent;
         yield parsed;
       } catch (e) {
-        console.warn("SSE parse error", e, dataLines);
+        console.warn("SSE 事件解析失败", e, dataLines);
       }
     }
   }

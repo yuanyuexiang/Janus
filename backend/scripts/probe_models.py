@@ -1,4 +1,4 @@
-"""Probe which model IDs this relay accepts."""
+"""中转模型探针：探测当前 token 能用哪些 model ID。"""
 
 import asyncio
 
@@ -7,18 +7,18 @@ from anthropic import AsyncAnthropic, NotFoundError, PermissionDeniedError
 from app.config import get_settings
 
 CANDIDATES = [
-    # Haiku family
+    # Haiku 家族
     "claude-haiku-4-5",
     "claude-haiku-4-5-20251001",
     "claude-3-5-haiku-latest",
     "claude-3-5-haiku-20241022",
-    # Sonnet family
+    # Sonnet 家族
     "claude-sonnet-4-6",
     "claude-sonnet-4-5",
     "claude-sonnet-4-20250514",
     "claude-3-5-sonnet-latest",
     "claude-3-5-sonnet-20241022",
-    # Opus family
+    # Opus 家族
     "claude-opus-4-7",
     "claude-opus-4-6",
     "claude-opus-4-5",

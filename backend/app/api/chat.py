@@ -1,7 +1,8 @@
-"""SSE chat endpoint. Supports two modes:
+"""SSE 聊天端点。支持三种模式：
 
-- `solo`: single advisor (M1 behaviour, defaults to ming_ge)
-- `mini`: 3-advisor mini council + conductor synthesis (M2 default)
+- `solo`：单顾问（M1 行为，默认明哥）
+- `mini`：3 顾问圆桌 + 主持人综合（M2 默认）
+- `full`：6 顾问全员 + 主持人综合
 """
 
 import asyncio
@@ -11,11 +12,12 @@ from collections.abc import AsyncIterator
 from typing import Literal
 from uuid import UUID
 
-# Strong-ref set to keep fire-and-forget tasks alive until they finish.
-# Python's asyncio task references are weak by default — without this set,
-# the auto-title task can be garbage collected before it completes.
+# 用全局强引用集合保住「发完不等」的后台任务，让它们能跑完。
+# Python asyncio 默认对 task 是弱引用 —— 不加这层集合，auto-title 任务可能
+# 在生成器结束时就被 GC 回收掉。
 _BACKGROUND_TASKS: set[asyncio.Task] = set()
 
+from anthropic import APIStatusError
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -42,7 +44,7 @@ Mode = Literal["solo", "mini", "full"]
 class ChatRequest(BaseModel):
     question: str
     mode: Mode = "mini"
-    advisor: str = "ming_ge"  # only used when mode=solo
+    advisor: str = "ming_ge"  # 仅在 mode=solo 时生效
     conversation_id: UUID | None = None
 
 
@@ -51,7 +53,7 @@ def _sse(event: dict) -> str:
 
 
 class _AdvisorAccum:
-    """Per-advisor accumulator used to persist a `advisor:<name>` message at council end."""
+    """单顾问累计器：圆桌结束时用它持久化一条 `advisor:<name>` 消息。"""
 
     def __init__(self, name: str, model: str) -> None:
         self.name = name
@@ -130,7 +132,7 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
                 etype = event.get("type")
                 advisor_name = event.get("advisor")
 
-                # For solo mode, run_advisor doesn't tag events with `advisor`, so default it
+                # solo 模式下 run_advisor 不会给事件挂 advisor 字段，这里补一个默认
                 if advisor_name is None and req.mode == "solo":
                     advisor_name = advisors[0].profile.name
 
@@ -169,7 +171,7 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
 
                 yield _sse(event)
 
-            # Persist: one row per advisor + one row for the conductor (if council mode)
+            # 持久化：每位顾问一条；圆桌模式下额外加一条 conductor
             for acc in accums.values():
                 if not acc.text and acc.opinion is None and not acc.tool_calls:
                     continue
@@ -201,7 +203,7 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
                     tokens_out=nonlocal_synthesis_tokens["out"] or None,
                 )
 
-            # Background: auto-title freshly created conversations
+            # 后台任务：为新建会话自动生成标题
             if is_new_conv:
                 hint: str | None = None
                 if synthesis_full and synthesis_full.get("final_summary"):
@@ -215,9 +217,48 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
                 task = asyncio.create_task(auto_title(conv.id, req.question, hint))
                 _BACKGROUND_TASKS.add(task)
                 task.add_done_callback(_BACKGROUND_TASKS.discard)
+        except APIStatusError as e:
+            logger.exception("relay/Anthropic API error")
+            yield _sse(_relay_error_event(e))
         except Exception as e:
             logger.exception("chat stream failed")
             yield _sse({"type": "error", "code": "INTERNAL", "message": f"{type(e).__name__}: {e}"})
+
+
+def _relay_error_event(e: APIStatusError) -> dict:
+    """把 Anthropic SDK 抛的 API 错误转成对用户友好的 SSE 错误事件。"""
+    status = getattr(e, "status_code", None)
+    body = getattr(e, "body", None) or {}
+    inner = (body.get("error") if isinstance(body, dict) else None) or {}
+    msg = (inner.get("message") if isinstance(inner, dict) else None) or str(e)
+
+    if status == 402:
+        return {
+            "type": "error",
+            "code": "RELAY_INSUFFICIENT_BALANCE",
+            "message": "中转账户余额不足，请去 matrix-net.tech 充值",
+            "detail": msg,
+        }
+    if status == 401:
+        return {
+            "type": "error",
+            "code": "RELAY_AUTH_FAILED",
+            "message": "中转 API Key 无效或已过期，请检查 RELAY_API_KEY",
+            "detail": msg,
+        }
+    if status == 429:
+        return {
+            "type": "error",
+            "code": "RELAY_RATE_LIMITED",
+            "message": "中转请求频率超限，请稍后再试",
+            "detail": msg,
+        }
+    return {
+        "type": "error",
+        "code": f"RELAY_HTTP_{status or 'UNKNOWN'}",
+        "message": msg or "中转请求失败",
+        "detail": str(e)[:300],
+    }
 
 
 @router.post("/chat")

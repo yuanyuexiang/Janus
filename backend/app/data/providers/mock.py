@@ -1,8 +1,8 @@
-"""Mock data provider. Always available as the final fallback so the system
-demos cleanly without external dependencies.
+"""Mock 数据 provider。永远作为链上最后一环兜底，保证没接外部数据源
+时演示也能跑通。
 
-Symbol coverage spans A-shares + US tech; values are illustrative, not real.
-Macro / industry data is also placeholder until M3.1 wires real Tushare endpoints.
+标的覆盖 A 股 + 美股科技股；数值仅供演示，不是真实行情。
+宏观 / 行业数据同样是占位数据，等 M3.1 接上 Tushare 真端点后逐步替换。
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from app.data.providers.base import DataProvider
 
 
 def _normalize_symbol(symbol: str) -> str:
-    """Normalize raw A-share codes to qualified form. `600519` → `600519.SH`."""
+    """把裸 6 位 A 股代码归一化成带后缀的标准形式：`600519` → `600519.SH`。"""
     s = symbol.upper().strip()
     if "." in s or not re.fullmatch(r"\d{6}", s):
         return s
@@ -29,10 +29,10 @@ def _normalize_symbol(symbol: str) -> str:
         return f"{s}.BJ"
     return s
 
-# ---------- Price snapshots (illustrative) ----------
+# ---------- 行情快照（演示数据） ----------
 
 _PRICES: dict[str, dict] = {
-    # A-shares
+    # A 股
     "600519.SH": {"name": "贵州茅台", "price": 1820.50, "change_pct": -1.23, "pe": 28.4, "industry": "白酒"},
     "000858.SZ": {"name": "五粮液",   "price": 142.30,  "change_pct": -0.42, "pe": 17.8, "industry": "白酒"},
     "300750.SZ": {"name": "宁德时代", "price": 245.30,  "change_pct": -2.10, "pe": 18.7, "industry": "锂电池"},
@@ -45,14 +45,14 @@ _PRICES: dict[str, dict] = {
     "688981.SH": {"name": "中芯国际", "price": 71.40,   "change_pct": 2.15,  "pe": 78.9, "industry": "半导体"},
     "002415.SZ": {"name": "海康威视", "price": 32.45,   "change_pct": -0.55, "pe": 19.2, "industry": "安防"},
     "600900.SH": {"name": "长江电力", "price": 27.86,   "change_pct": 0.18,  "pe": 21.3, "industry": "公用事业"},
-    # US tech
+    # 美股科技
     "AAPL":      {"name": "Apple",    "price": 187.42, "change_pct": 0.83,  "pe": 31.2, "industry": "消费电子"},
     "MSFT":      {"name": "Microsoft","price": 412.30, "change_pct": 1.10,  "pe": 35.4, "industry": "软件"},
     "NVDA":      {"name": "NVIDIA",   "price": 880.50, "change_pct": 2.35,  "pe": 65.8, "industry": "半导体"},
     "TSLA":      {"name": "Tesla",    "price": 178.90, "change_pct": -1.85, "pe": 45.6, "industry": "电动汽车"},
 }
 
-# ---------- Macro indicators (illustrative latest readings) ----------
+# ---------- 宏观指标（演示用最新读数） ----------
 
 _MACRO: dict[str, dict] = {
     "cpi": {
@@ -120,7 +120,7 @@ _MACRO: dict[str, dict] = {
     },
 }
 
-# ---------- Industry overviews (illustrative) ----------
+# ---------- 行业概览（演示数据） ----------
 
 _INDUSTRIES: dict[str, dict] = {
     "白酒": {
@@ -190,7 +190,73 @@ _INDUSTRIES: dict[str, dict] = {
 }
 
 
-# ---------- Aliases for friendly resolution ----------
+# ---------- 行业名别名（用户输入容错） ----------
+
+# ---------- 新闻（演示样本） ----------
+
+_NEWS_FIXTURES: list[dict] = [
+    {
+        "datetime": "2026-05-28 09:15:00",
+        "title": "央行公开市场净投放 4200 亿元，市场流动性整体宽松",
+        "content": "央行今日开展 6000 亿元 7 天逆回购，到期 1800 亿元，净投放 4200 亿元。机构解读认为月末流动性平稳。",
+        "channel": "宏观",
+    },
+    {
+        "datetime": "2026-05-28 08:30:00",
+        "title": "白酒板块批价持续承压，茅台飞天批价跌破 2300",
+        "content": "上海/北京等地经销商反映，飞天茅台 53 度散瓶批价已跌破 2300 元，较年初下行约 8%。",
+        "channel": "白酒",
+    },
+    {
+        "datetime": "2026-05-28 07:45:00",
+        "title": "宁德时代发布新一代 6C 超充电池，量产时间表前置至四季度",
+        "content": "公司称新电池能量密度提升 15%，目标年内进入装车阶段。",
+        "channel": "锂电池",
+    },
+    {
+        "datetime": "2026-05-27 19:30:00",
+        "title": "美联储 6 月议息会议预期：市场押注降息概率上升至 60%",
+        "content": "CME FedWatch 数据显示，市场对 6 月降息 25bp 的概率从上周的 45% 上升至 60%。",
+        "channel": "宏观",
+    },
+    {
+        "datetime": "2026-05-27 18:10:00",
+        "title": "半导体设备国产化率突破 35%，AI 算力需求拉动设备投资",
+        "content": "国内主流晶圆厂 2026 年资本开支同比增长 22%，关键设备国产替代加速。",
+        "channel": "半导体",
+    },
+    {
+        "datetime": "2026-05-27 16:00:00",
+        "title": "比亚迪 4 月新能源车销量同比+18%，出口创新高",
+        "content": "公司 4 月销售新能源车 39.6 万辆，其中出口 6.8 万辆，同比增长 65%。",
+        "channel": "新能源汽车",
+    },
+    {
+        "datetime": "2026-05-27 14:20:00",
+        "title": "招商银行一季报：净息差企稳，财富管理收入同比+12%",
+        "content": "公司一季度净息差环比+2bp 至 1.98%，非息收入占比提升至 42%。",
+        "channel": "银行",
+    },
+    {
+        "datetime": "2026-05-27 11:00:00",
+        "title": "国家医保局：今年医保谈判温和，重点支持创新药",
+        "content": "针对创新药品类，今年医保谈判平均降幅控制在 35% 以内，较去年放缓。",
+        "channel": "创新药",
+    },
+    {
+        "datetime": "2026-05-26 21:30:00",
+        "title": "苹果 WWDC 2026 预热：传将发布更大规模 AI 模型与端侧推理框架",
+        "content": "彭博社引述供应链消息称，苹果将公布与 OpenAI 合作的全新 AI 战略。",
+        "channel": "消费电子",
+    },
+    {
+        "datetime": "2026-05-26 20:00:00",
+        "title": "NVIDIA Q1 财报超预期：数据中心营收同比+62%",
+        "content": "公司数据中心营收 280 亿美元，毛利率 75.1%，指引 Q2 营收 320 亿美元。",
+        "channel": "半导体",
+    },
+]
+
 
 _INDUSTRY_ALIASES: dict[str, str] = {
     "酒": "白酒",
@@ -238,12 +304,27 @@ class MockProvider(DataProvider):
             return None
         return dict(row)
 
+    async def search_news(
+        self,
+        query: str | None = None,
+        limit: int = 20,
+    ) -> dict | None:
+        q = (query or "").strip()
+        items: list[dict] = []
+        for n in _NEWS_FIXTURES:
+            if q and q not in n["title"] and q not in (n.get("content") or "") and q != n.get("channel"):
+                continue
+            items.append(dict(n))
+            if len(items) >= max(1, min(limit, 50)):
+                break
+        return {"query": q or None, "count": len(items), "items": items}
+
     async def get_kline(self, symbol: str, days: int = 30) -> dict | None:
         sym = _normalize_symbol(symbol)
         row = _PRICES.get(sym)
         if not row:
             return None
-        days = max(5, min(days, 120))  # clamp 5-120
+        days = max(5, min(days, 120))  # 限制在 5-120 之间
         bars = _generate_kline_bars(sym, anchor_close=row["price"], days=days)
         latest = bars[-1]
         first = bars[0]
@@ -266,27 +347,27 @@ class MockProvider(DataProvider):
 def _generate_kline_bars(
     symbol: str, *, anchor_close: float, days: int
 ) -> list[dict]:
-    """Deterministic pseudo-OHLCV walk seeded by symbol — same input always yields same series.
+    """以 symbol 为种子的确定性 OHLCV 随机游走 —— 同一标的反复调用结果一致。
 
-    We anchor the *latest* bar's close to `anchor_close` (matches the price-snapshot mock)
-    and walk backwards with daily log-returns drawn from a symbol-seeded RNG.
+    把**最新一根**的 close 锚定到 `anchor_close`（与行情快照 mock 保持同步），
+    然后用 symbol 种子的随机数源向前倒推每日对数收益率。
     """
     seed = int(hashlib.md5(symbol.encode("utf-8")).hexdigest()[:8], 16)
     rng = random.Random(seed)
 
-    # daily log-return std: ~1.8% for A-shares, ~1.5% for US mega-caps; close enough for mock
+    # 日对数收益率标准差：A 股约 1.8% / 美股大盘股约 1.5%；mock 用中间值够用
     daily_sigma = 0.018
 
     closes: list[float] = [anchor_close]
     for _ in range(days - 1):
-        # walking BACKWARDS: previous close = today's close / (1+ret)
+        # 向前倒推：前一日收盘 = 今日收盘 / (1+ret)
         ret = rng.gauss(0, daily_sigma)
         prev = closes[-1] / (1.0 + ret)
         closes.append(prev)
-    closes.reverse()  # oldest first
+    closes.reverse()  # 最旧的放最前
 
     today = date.today()
-    # skip weekends crudely
+    # 粗暴跳过周末
     dates: list[date] = []
     cur = today
     while len(dates) < days:

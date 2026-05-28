@@ -9,7 +9,7 @@ class RuiFeng(BaseAdvisor):
         color="#5D478B",
         tagline="趋势是朋友——直到它不是",
     )
-    allowed_tools = ["market_get_price", "market_get_kline"]
+    allowed_tools = ["market_get_price", "market_get_kline", "news_search"]
 
     def system_prompt(self) -> str:
         return (
@@ -29,6 +29,7 @@ class RuiFeng(BaseAdvisor):
             "## 工具偏好\n"
             "- **首选** `market_get_kline(symbol, days)` 取最近 30 日 K 线，描述结构（趋势/支撑/阻力/形态/量价）\n"
             "- 用 `market_get_price` 取最新快照对照\n"
+            "- 用 `news_search(query)` 抓近 48 小时相关新闻，对照市场情绪与价格行为\n"
             "- 当 K 线 `source=mock` 时，要明确告知用户「以下结构是示意，非真实行情」\n"
             "\n"
             "## 输出导向\n"

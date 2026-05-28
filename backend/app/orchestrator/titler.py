@@ -1,8 +1,7 @@
-"""Auto-title a freshly created conversation.
+"""会话自动标题。
 
-Heuristic: when the first opinion/synthesis lands, ask the model for a short
-Chinese title (8-15 chars) and PATCH `conversations.title`. Runs as a background
-asyncio task so it does not block the SSE stream the user is watching.
+启发式：首轮 opinion / synthesis 落地后，调一次 LLM 生成简短中文标题，
+然后 PATCH 到 `conversations.title`。作为后台 asyncio 任务跑，不阻塞用户看的 SSE 流。
 """
 
 from __future__ import annotations
@@ -47,40 +46,40 @@ async def generate_title(question: str, summary_hint: str | None = None) -> str 
             messages=[{"role": "user", "content": user_msg}],
         )
     except Exception as e:
-        logger.warning("titler LLM call failed: %s", e)
+        logger.warning("titler LLM 调用失败: %s", e)
         return None
 
     raw = ""
     for block in resp.content:
         if block.type == "text":
             raw += block.text
-    logger.warning("titler raw response: %r", raw[:200])
+    logger.warning("titler 原始返回: %r", raw[:200])
     text = raw.strip()
     if not text:
         return None
-    # Take first non-empty line, strip surrounding punctuation
+    # 取第一段非空行，剥掉前后的引号 / 标点
     text = text.splitlines()[0].strip().strip("「」\"'。？！. ")
-    # Sanity: 4-30 chars after cleanup
+    # 健康检查：清理后长度 4-30 字符
     if not (4 <= len(text) <= 30):
-        logger.warning("titler rejected length=%d text=%r", len(text), text)
+        logger.warning("titler 标题被拒：长度 %d，内容 %r", len(text), text)
         return None
     return text
 
 
 async def auto_title(conv_id: UUID, question: str, summary_hint: str | None = None) -> None:
-    """Background task: generate title and persist. Logs+swallows all errors."""
-    logger.warning("auto_title task running for %s", conv_id)
+    """后台任务：生成标题并写库。任何异常都吞掉只记日志。"""
+    logger.warning("auto_title 任务启动：会话 %s", conv_id)
     try:
         title = await generate_title(question, summary_hint)
-        logger.warning("auto_title generated %r for %s", title, conv_id)
+        logger.warning("auto_title 已生成 %r（会话 %s）", title, conv_id)
         if not title:
             return
         async with SessionLocal() as db:
             conv = await get_conversation(db, conv_id)
             if conv is None:
-                logger.warning("auto_title: conv %s vanished", conv_id)
+                logger.warning("auto_title：会话 %s 已不存在", conv_id)
                 return
             await update_conversation_title(db, conv, title=title)
-            logger.warning("auto-titled %s → %s", conv_id, title)
+            logger.warning("auto_title 已写入 %s → %s", conv_id, title)
     except Exception:
-        logger.exception("auto_title failed for %s", conv_id)
+        logger.exception("auto_title 失败：会话 %s", conv_id)

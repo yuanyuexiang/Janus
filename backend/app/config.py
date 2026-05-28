@@ -12,19 +12,21 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://yuanzhuo:yuanzhuo@127.0.0.1:5432/yuanzhuo"
     redis_url: str = "redis://127.0.0.1:6379/0"
 
-    # Claude relay (M1+ 填)
+    # Claude 中转配置（M1 以后填）
     relay_base_url: str = ""
     relay_api_key: str = ""
 
+    # 三档模型路由：主持人 / 默认顾问 / 路由分类器
     conductor_model: str = "claude-opus-4-7"
     default_advisor_model: str = "claude-sonnet-4-6"
     router_model: str = "claude-haiku-4-5"
 
-    # 数据源
+    # 数据源凭据
     choice_user: str = ""
     choice_password: str = ""
     tushare_token: str = ""
 
+    # 允许的前端来源（CORS 白名单）
     cors_origins: list[str] = ["http://localhost:3000"]
 
 

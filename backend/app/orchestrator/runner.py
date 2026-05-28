@@ -1,4 +1,4 @@
-"""Single-advisor runner: drives one Anthropic Messages tool-use loop and yields stream events."""
+"""单顾问运行器：驱动一次 Anthropic Messages tool-use 循环，把过程包装成事件流。"""
 
 from __future__ import annotations
 
@@ -25,14 +25,14 @@ MAX_TOOL_TURNS = 6
 def _extract_json_object(
     text: str, required_keys: list[str] | None = None
 ) -> dict[str, Any] | None:
-    """Extract a JSON object from `text`, tolerating surrounding prose / fences.
+    """从 `text` 中提取一个 JSON 对象，容忍前后的散文 / markdown 围栏。
 
-    Strategy:
-      1. Strip ``` / ```json fences.
-      2. Forward-scan to find every top-level (depth-0) balanced `{...}` span.
-      3. If `required_keys` is given, prefer the latest span that contains *all* of them
-         (this avoids picking nested objects like `{"bullish": [...]}` inside a disagreement).
-      4. Fall back to the latest successfully parsed object.
+    策略：
+      1. 剥掉 ``` 或 ```json 围栏。
+      2. 正向扫描，记录所有 depth==0 的平衡 `{...}` 跨度。
+      3. 如果指定了 `required_keys`，优先返回**最后一个**包含全部 required keys
+         的跨度（避开 disagreements 里的嵌套 `{"bullish": [...]}` 这种内层对象）。
+      4. 否则退化为最后一个能解析的对象。
     """
     if not text:
         return None
@@ -48,7 +48,7 @@ def _extract_json_object(
             depth += 1
         elif c == "}":
             if depth == 0:
-                continue  # unbalanced stray; ignore
+                continue  # 孤立的 }，忽略
             depth -= 1
             if depth == 0 and start is not None:
                 spans.append((start, i))
@@ -57,7 +57,7 @@ def _extract_json_object(
     if not spans:
         return None
 
-    # First pass: latest span with all required keys
+    # 第一轮：从后往前找包含全部 required keys 的跨度
     if required_keys:
         for s, e in reversed(spans):
             try:
@@ -67,7 +67,7 @@ def _extract_json_object(
             if isinstance(obj, dict) and all(k in obj for k in required_keys):
                 return obj
 
-    # Fallback: latest parseable object
+    # 兜底：从后往前找任意可解析的对象
     for s, e in reversed(spans):
         try:
             obj = json.loads(stripped[s : e + 1])
@@ -86,14 +86,14 @@ async def run_advisor(
     client: AsyncAnthropic | None = None,
     model: str | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
-    """Yield stream events for one advisor's full reasoning turn.
+    """驱动一位顾问完整一轮推理，把过程包装成事件流。
 
-    Event types:
+    事件类型：
       {type: "advisor_start", advisor, display, role, color}
-      {type: "text", chunk}                       # streamed text deltas
-      {type: "tool_call", tool, args}             # tool use requested by model
-      {type: "tool_result", tool, result}         # our handler's reply
-      {type: "opinion", full}                     # final structured AdvisorOpinion (dict)
+      {type: "text", chunk}                       # 流式文本增量
+      {type: "tool_call", tool, args}             # 模型请求调用工具
+      {type: "tool_result", tool, result}         # 我们 handler 的返回
+      {type: "opinion", full}                     # 最终结构化 AdvisorOpinion（dict）
       {type: "stage", stage: "thinking"|"tool_use"|"done"}
       {type: "error", code, message}
     """
@@ -178,7 +178,7 @@ async def run_advisor(
         yield {
             "type": "error",
             "code": "MAX_TURNS_EXCEEDED",
-            "message": f"Advisor exceeded {MAX_TOOL_TURNS} tool turns",
+            "message": f"顾问超出 {MAX_TOOL_TURNS} 轮工具调用上限",
         }
 
     parsed = _extract_json_object(
@@ -187,7 +187,7 @@ async def run_advisor(
 
     if parsed is None:
         logger.warning(
-            "Opinion parse failed for %s on first try; asking for JSON only.",
+            "顾问 %s 首次未输出合法 JSON；改为只要 JSON 重试一次",
             advisor.profile.name,
         )
         yield {"type": "stage", "stage": "retry_opinion"}
@@ -224,14 +224,14 @@ async def run_advisor(
 
     if parsed is None:
         logger.warning(
-            "Opinion parse failed for %s after retry. Raw text (last 1500 chars):\n%s",
+            "顾问 %s 重试后仍未输出合法 JSON。原文（最后 1500 字符）：\n%s",
             advisor.profile.name,
             (accumulated_text + "\n--RETRY--\n" + (retry_text if "retry_text" in locals() else ""))[-1500:],
         )
         yield {
             "type": "error",
             "code": "OPINION_PARSE_FAILED",
-            "message": "Advisor did not produce a valid JSON opinion after retry",
+            "message": "顾问重试后仍未输出合法 JSON",
         }
         yield {"type": "stage", "stage": "done"}
         return

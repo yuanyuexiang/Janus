@@ -1,9 +1,8 @@
-"""Probe which Tushare endpoints our token can access.
+"""Tushare 端点权限探针：当前 token 能访问哪些接口。
 
-Tushare's free tier gates endpoints behind point scores (100 default, up to
-5000 after email + phone verify). This script tries representative endpoints
-across price / fundamentals / macro / industry / kline categories and reports
-which ones return data vs which 401 due to insufficient points.
+Tushare 免费层按积分门控（默认 100，验邮箱 + 绑手机后最高 5000）。
+本脚本挑了价格 / 基本面 / 宏观 / 行业 / K 线几类代表端点，分别试一下
+哪些能拿到数据、哪些会 401 / 40203 权限不足。
 """
 
 import asyncio
@@ -43,24 +42,24 @@ async def try_endpoint(name: str, params: dict, fields: str, token: str) -> str:
 async def main() -> None:
     token = get_settings().tushare_token
     if not token:
-        raise SystemExit("TUSHARE_TOKEN not set in .env")
+        raise SystemExit(".env 里没配 TUSHARE_TOKEN")
 
     probes = [
-        # === Stock metadata / basic price ===
+        # === 股票元数据 / 基本行情 ===
         ("stock_basic",  {"ts_code": "600519.SH"}, "ts_code,name,industry"),
         ("daily",        {"ts_code": "600519.SH", "limit": 5}, "ts_code,trade_date,close,pct_chg"),
         ("daily_basic",  {"ts_code": "600519.SH", "limit": 3}, "ts_code,trade_date,close,pe,pb"),
 
-        # === Macro indicators ===
+        # === 宏观指标 ===
         ("cn_cpi",       {}, "month,nt_yoy"),
         ("cn_ppi",       {}, "month,ppi_yoy"),
         ("cn_m",         {}, "month,m2_yoy,m1_yoy,m0_yoy"),
         ("cn_pmi",       {}, "month,pmi010000"),
         ("cn_sf",        {}, "month,inc_month"),
 
-        # === Industry indices ===
+        # === 行业指数 ===
         ("index_basic",  {"market": "SW"}, "ts_code,name,fullname"),
-        ("index_daily",  {"ts_code": "801080.SI", "limit": 3}, "ts_code,trade_date,close,pct_chg"),  # SW 电子
+        ("index_daily",  {"ts_code": "801080.SI", "limit": 3}, "ts_code,trade_date,close,pct_chg"),  # 申万电子
     ]
 
     print(f"Token: {token[:8]}...{token[-6:]}\n")

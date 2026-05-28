@@ -1,4 +1,4 @@
-"""Advisor registry. M2.5 ships all 6 advisors; mini (3) and full (6) councils both available."""
+"""顾问注册表。M2.5 起 6 位顾问全部就位；mini（3 人）和 full（6 人）两种圆桌可选。"""
 
 from app.orchestrator.advisors.base import BaseAdvisor
 from app.orchestrator.advisors.lan_jie import LanJie

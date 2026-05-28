@@ -1,4 +1,4 @@
-"""Probe relay: verify Anthropic-protocol compatibility through the configured relay."""
+"""中转探针：通过配置的中转验证 Anthropic 协议兼容性。"""
 
 import asyncio
 
@@ -10,7 +10,7 @@ from app.config import get_settings
 async def main() -> None:
     settings = get_settings()
     if not settings.relay_base_url or not settings.relay_api_key:
-        raise SystemExit("RELAY_BASE_URL / RELAY_API_KEY not set in .env")
+        raise SystemExit(".env 里没配 RELAY_BASE_URL / RELAY_API_KEY")
 
     client = AsyncAnthropic(
         base_url=settings.relay_base_url.rstrip("/"),

@@ -9,7 +9,12 @@ class TaoShu(BaseAdvisor):
         color="#4A6FA5",
         tagline="先看时代，再看公司",
     )
-    allowed_tools = ["market_get_price", "macro_get_indicators", "macro_list_indicators"]
+    allowed_tools = [
+        "market_get_price",
+        "macro_get_indicators",
+        "macro_list_indicators",
+        "news_search",
+    ]
 
     def system_prompt(self) -> str:
         return (
@@ -29,6 +34,7 @@ class TaoShu(BaseAdvisor):
             "## 工具偏好\n"
             "- **首选** `macro_get_indicators(indicator)` 取宏观指标实数（CPI/PPI/M2/PMI/10y/汇率/社融等）\n"
             "- 不确定有哪些指标可用时，先调 `macro_list_indicators()`\n"
+            "- 用 `news_search(query)` 抓近 48 小时宏观新闻（央行 / 议息 / 财政 / 地缘）补全图景\n"
             "- `market_get_price` 只作为辅助锚点，不要据此写宏观论点\n"
             "\n"
             "## 输出导向\n"

@@ -4,11 +4,11 @@ description: 始终生效；强制顾问最后一条消息只输出符合 Adviso
 version: 0.1.0
 ---
 
-# Structured Opinion
+# 结构化观点协议
 
-This skill is always active.
+此 Skill 始终生效。
 
-## Output Protocol
+## 输出协议
 
 在所有工具调用与分析完成后，**你的最后一条助手消息必须只输出一个 JSON 对象**——不要任何 markdown 围栏、不要任何前后注释、不要任何 prose。
 
@@ -27,7 +27,7 @@ JSON schema：
 }
 ```
 
-## Hard Constraints
+## 强约束
 
 - `summary_for_user` 长度严格控制在 2-3 句话，不要写成段落。
 - `stance` 只能取四个枚举值之一。

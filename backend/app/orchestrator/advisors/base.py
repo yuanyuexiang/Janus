@@ -1,4 +1,4 @@
-"""Advisor base class. M1 only ships 明哥; M2 adds the rest."""
+"""顾问基类。M1 只有明哥；M2 起补齐其余顾问。"""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -6,16 +6,16 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class AdvisorProfile:
-    name: str          # internal id, e.g. "ming_ge"
-    display: str       # public-facing name, e.g. "明哥"
-    role: str          # role tag, e.g. "价值"
-    color: str         # accent color (hex), used in frontend
-    tagline: str       # one-line motto
+    name: str          # 内部标识，例如 "ming_ge"
+    display: str       # 展示名，例如 "明哥"
+    role: str          # 角色标签，例如 "价值"
+    color: str         # 强调色（hex），前端用
+    tagline: str       # 一句话座右铭
 
 
 class BaseAdvisor(ABC):
     profile: AdvisorProfile
-    model: str | None = None  # None means use settings.default_advisor_model
+    model: str | None = None  # None 表示采用 settings.default_advisor_model
     allowed_tools: list[str] = []
 
     @abstractmethod

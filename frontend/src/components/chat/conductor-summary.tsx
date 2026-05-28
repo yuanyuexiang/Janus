@@ -7,28 +7,31 @@ const VERDICT_LABEL: Record<CouncilSummary["verdict"], string> = {
   split: "明显分歧",
 };
 
-const VERDICT_COLOR: Record<CouncilSummary["verdict"], string> = {
-  strong_consensus: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-  weak_consensus: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  split: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+const VERDICT_TONE: Record<CouncilSummary["verdict"], string> = {
+  strong_consensus: "bg-sage-500/15 text-sage-700 ring-sage-500/40 dark:bg-sage-500/20 dark:text-sage-300 dark:ring-sage-300/40",
+  weak_consensus: "bg-gilt-500/15 text-gilt-900 ring-gilt-500/40 dark:bg-gilt-500/20 dark:text-gilt-100 dark:ring-gilt-300/40",
+  split: "bg-vermillion-500/15 text-vermillion-700 ring-vermillion-500/40 dark:bg-vermillion-500/25 dark:text-vermillion-300 dark:ring-vermillion-300/40",
 };
 
 function SeverityBar({ level }: { level: number }) {
-  const blocks = [1, 2, 3, 4, 5].map((n) => (
-    <span
-      key={n}
-      className={`inline-block h-1.5 w-3 ${
-        n <= level
-          ? n >= 4
-            ? "bg-red-500"
-            : n === 3
-              ? "bg-amber-500"
-              : "bg-emerald-500"
-          : "bg-zinc-200 dark:bg-zinc-700"
-      }`}
-    />
-  ));
-  return <span className="inline-flex gap-0.5">{blocks}</span>;
+  return (
+    <span className="inline-flex items-center gap-[2px]">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <span
+          key={n}
+          className={`h-1 w-2.5 ${
+            n <= level
+              ? n >= 4
+                ? "bg-vermillion-500"
+                : n === 3
+                  ? "bg-gilt-500"
+                  : "bg-sage-500"
+              : "bg-parchment-300/80 dark:bg-walnut-300/40"
+          }`}
+        />
+      ))}
+    </span>
+  );
 }
 
 export type ConductorSummaryProps = {
@@ -37,25 +40,45 @@ export type ConductorSummaryProps = {
   onOpenDetails?: () => void;
 };
 
-export function ConductorSummary({ streamingText, summary, onOpenDetails }: ConductorSummaryProps) {
+export function ConductorSummary({
+  streamingText,
+  summary,
+  onOpenDetails,
+}: ConductorSummaryProps) {
   const showStream = !summary;
 
   return (
-    <article
-      className="rounded-lg border-2 border-amber-700/40 bg-amber-50/40 p-5 shadow-sm dark:border-amber-600/40 dark:bg-amber-950/20"
-    >
-      <header className="mb-3 flex items-baseline justify-between">
-        <div>
-          <span className="text-base font-semibold text-amber-900 dark:text-amber-200">
+    <article className="relative overflow-hidden rounded-sm border border-gilt-500/40 bg-parchment-100/60 px-6 py-6 shadow-paper-lg dark:border-gilt-500/30 dark:bg-walnut-700/60">
+      {/* 金箔细线装饰 (顶 + 底) */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent 0%, var(--color-gilt-500) 50%, transparent 100%)",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent 0%, var(--color-gilt-500) 50%, transparent 100%)",
+        }}
+      />
+
+      <header className="mb-5 flex items-baseline justify-between gap-3">
+        <div className="flex items-baseline gap-3">
+          <span className="font-display text-2xl font-medium leading-none text-gilt-900 dark:text-gilt-100">
             执棋
           </span>
-          <span className="ml-2 text-xs uppercase tracking-wide text-amber-700/70 dark:text-amber-400/70">
+          <span className="font-display text-[11px] uppercase tracking-[0.3em] text-gilt-700/80 dark:text-gilt-300/70">
             主持人 · 综合
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {summary && (
-            <span className={`rounded px-2 py-0.5 text-xs ${VERDICT_COLOR[summary.verdict]}`}>
+            <span
+              className={`inline-flex items-center rounded-sm px-2 py-0.5 font-display text-[11px] ring-1 ring-inset ${VERDICT_TONE[summary.verdict]}`}
+            >
               {VERDICT_LABEL[summary.verdict]}
             </span>
           )}
@@ -63,116 +86,132 @@ export function ConductorSummary({ streamingText, summary, onOpenDetails }: Cond
             <button
               type="button"
               onClick={onOpenDetails}
-              className="rounded border border-amber-700/40 px-1.5 py-0.5 text-[10px] uppercase text-amber-700 hover:border-amber-700 hover:bg-amber-100 dark:border-amber-600/40 dark:text-amber-400 dark:hover:bg-amber-950/40"
+              className="rounded-sm border border-gilt-500/50 px-1.5 py-0.5 font-display text-[10px] tracking-wider text-gilt-700 transition-colors hover:border-gilt-500 hover:bg-gilt-500/10 dark:border-gilt-300/40 dark:text-gilt-100 dark:hover:bg-gilt-500/15"
               title="查看执棋看到了什么"
             >
-              ⓘ 详情
+              详情
             </button>
           )}
         </div>
       </header>
 
-      {showStream && (
-        <div>
+      {showStream ? (
+        <div className="text-[14px] leading-7 text-ink-900 dark:text-parchment-100">
           {streamingText ? (
             <Markdown>{streamingText}</Markdown>
           ) : (
-            <p className="text-sm text-zinc-400">执棋整理中…</p>
+            <p className="font-display italic text-walnut-50/60 dark:text-parchment-200/50">
+              执棋整理中…
+            </p>
           )}
-          <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-amber-600 align-middle" />
+          <span className="ml-0.5 inline-block h-3 w-[2px] animate-pulse bg-gilt-500 align-middle" />
         </div>
-      )}
+      ) : (
+        summary && (
+          <div className="space-y-6">
+            {/* 总结：金箔边竖条 + 宋体大字 */}
+            <blockquote className="border-l-2 border-gilt-500 pl-4 font-display text-[15.5px] leading-relaxed not-italic text-ink-900 dark:text-parchment-100">
+              {summary.final_summary}
+            </blockquote>
 
-      {summary && (
-        <div className="space-y-5">
-          <p className="text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
-            {summary.final_summary}
-          </p>
+            {summary.consensus.length > 0 && (
+              <Section title="共识">
+                <ul className="list-inside list-[square] marker:text-sage-500 space-y-1 text-[13.5px] leading-relaxed text-ink-600 dark:text-parchment-200/80">
+                  {summary.consensus.map((c, i) => (
+                    <li key={i}>{c}</li>
+                  ))}
+                </ul>
+              </Section>
+            )}
 
-          {summary.consensus.length > 0 && (
-            <section>
-              <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                共识
-              </h3>
-              <ul className="list-inside list-disc space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                {summary.consensus.map((c, i) => (
-                  <li key={i}>{c}</li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {summary.disagreements.length > 0 && (
-            <section>
-              <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                分歧
-              </h3>
-              <ul className="space-y-3">
-                {summary.disagreements.map((d, i) => (
-                  <li key={i} className="rounded border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900">
-                    <div className="mb-2 font-medium text-zinc-800 dark:text-zinc-200">
-                      {d.point}
-                    </div>
-                    <div className="space-y-1.5">
-                      {Object.entries(d.sides).map(([stance, args]) => (
-                        <div key={stance} className="flex gap-2">
-                          <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-xs uppercase text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                            {stance}
-                          </span>
-                          <div className="text-zinc-700 dark:text-zinc-300">
-                            <ul className="list-inside list-disc space-y-0.5">
+            {summary.disagreements.length > 0 && (
+              <Section title="分歧">
+                <ul className="space-y-3">
+                  {summary.disagreements.map((d, i) => (
+                    <li
+                      key={i}
+                      className="rounded-sm border border-parchment-300/70 bg-parchment-50/80 p-4 text-[13.5px] dark:border-walnut-300/30 dark:bg-walnut-900/40"
+                    >
+                      <div className="mb-2 font-display font-medium text-ink-900 dark:text-parchment-100">
+                        {d.point}
+                      </div>
+                      <div className="space-y-2">
+                        {Object.entries(d.sides).map(([stance, args]) => (
+                          <div key={stance} className="flex gap-3">
+                            <span className="mt-0.5 shrink-0 rounded-sm border border-parchment-300/70 px-1.5 py-0.5 font-display text-[10px] uppercase tracking-wider text-walnut-100 dark:border-walnut-300/40 dark:text-parchment-200/80">
+                              {stance}
+                            </span>
+                            <ul className="list-inside list-[square] marker:text-walnut-50/60 space-y-0.5 text-ink-600 dark:text-parchment-200/80">
                               {args.map((a, j) => (
                                 <li key={j}>{a}</li>
                               ))}
                             </ul>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {summary.key_variables.length > 0 && (
-            <section>
-              <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                关键变量
-              </h3>
-              <ul className="list-inside list-decimal space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                {summary.key_variables.map((v, i) => (
-                  <li key={i}>{v}</li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {summary.risk_map.length > 0 && (
-            <section>
-              <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                风险地图
-              </h3>
-              <ul className="space-y-2">
-                {summary.risk_map.map((r, i) => (
-                  <li key={i} className="rounded border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900">
-                    <div className="mb-1 flex items-center gap-2">
-                      <SeverityBar level={r.severity} />
-                      <span className="text-xs text-zinc-500">严重度 {r.severity}/5</span>
-                    </div>
-                    <div className="text-zinc-800 dark:text-zinc-200">{r.risk}</div>
-                    {r.mitigation && (
-                      <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                        缓释：{r.mitigation}
+                        ))}
                       </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            )}
+
+            {summary.key_variables.length > 0 && (
+              <Section title="关键变量">
+                <ol className="list-inside list-decimal marker:font-display marker:text-gilt-700 space-y-1 text-[13.5px] leading-relaxed text-ink-600 dark:text-parchment-200/80">
+                  {summary.key_variables.map((v, i) => (
+                    <li key={i}>{v}</li>
+                  ))}
+                </ol>
+              </Section>
+            )}
+
+            {summary.risk_map.length > 0 && (
+              <Section title="风险地图">
+                <ul className="space-y-2.5">
+                  {summary.risk_map.map((r, i) => (
+                    <li
+                      key={i}
+                      className="rounded-sm border border-parchment-300/70 bg-parchment-50/80 p-3 text-[13.5px] dark:border-walnut-300/30 dark:bg-walnut-900/40"
+                    >
+                      <div className="mb-1.5 flex items-center gap-2">
+                        <SeverityBar level={r.severity} />
+                        <span className="font-display text-[10px] uppercase tracking-wider text-walnut-100 dark:text-parchment-200/70">
+                          严重度 {r.severity}/5
+                        </span>
+                      </div>
+                      <div className="text-ink-900 dark:text-parchment-100">
+                        {r.risk}
+                      </div>
+                      {r.mitigation && (
+                        <div className="mt-1 text-[12px] text-ink-600 dark:text-parchment-200/70">
+                          缓释：{r.mitigation}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            )}
+          </div>
+        )
       )}
     </article>
+  );
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h3 className="mb-2.5 font-display text-[11px] uppercase tracking-[0.3em] text-walnut-100 dark:text-parchment-200/80">
+        {title}
+      </h3>
+      {children}
+    </section>
   );
 }

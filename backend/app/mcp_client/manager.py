@@ -1,9 +1,12 @@
-"""MCP client manager. Spawns local MCP server subprocesses, keeps ClientSessions
-alive for the FastAPI app's lifetime, and routes tool calls to the right server.
+"""MCP 客户端管理器。
 
-Tools are discovered at startup via `session.list_tools()`. The router maps each
-tool name to its hosting server so advisors only need to declare `allowed_tools`
-by name (no awareness of which server hosts what).
+职责：
+- 启动本地 MCP server 子进程（stdio 协议）
+- 维持 ClientSession 在 FastAPI 应用生命周期内不断开
+- 把工具调用路由到对应的 server
+
+启动时通过 `session.list_tools()` 发现工具，建立 tool_name → server 的索引；
+顾问只需要在 `allowed_tools` 里写工具名即可，不必关心它属于哪个 server。
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 
 logger = logging.getLogger(__name__)
 
-# backend/ — where `python -m app.mcp_servers.foo` should be run
+# backend/ —— `python -m app.mcp_servers.foo` 的工作目录
 BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 
 
@@ -47,7 +50,7 @@ class MCPManager:
                 await session.initialize()
                 tools = await session.list_tools()
             except Exception:
-                logger.exception("Failed to start MCP server %s", module)
+                logger.exception("启动 MCP server %s 失败", module)
                 raise
             self._sessions[server_name] = session
             for tool in tools.tools:
@@ -58,7 +61,7 @@ class MCPManager:
                 }
                 self._tool_index[tool.name] = (server_name, spec)
             logger.info(
-                "MCP server '%s' started, tools=%s",
+                "MCP server '%s' 已启动，工具列表=%s",
                 server_name,
                 [t.name for t in tools.tools],
             )
@@ -81,14 +84,14 @@ class MCPManager:
         try:
             result = await session.call_tool(name, arguments)
         except Exception as e:
-            logger.exception("Tool call failed: %s(%s)", name, arguments)
+            logger.exception("工具调用失败: %s(%s)", name, arguments)
             return {
                 "ok": False,
                 "data": None,
                 "error": {"code": "TOOL_ERROR", "message": f"{type(e).__name__}: {e}"},
             }
-        # MCP CallToolResult.content is a list of content blocks; for our tools the
-        # first TextContent block carries a JSON-encoded payload.
+        # MCP CallToolResult.content 是一组内容块；我们的工具会把 JSON 序列化后
+        # 塞在第一个 TextContent 块里。
         for block in result.content:
             text = getattr(block, "text", None)
             if text:
@@ -116,5 +119,5 @@ def set_manager(m: MCPManager) -> None:
 
 def get_manager() -> MCPManager:
     if _manager is None:
-        raise RuntimeError("MCP manager not initialized — check FastAPI lifespan")
+        raise RuntimeError("MCPManager 尚未初始化 —— 检查 FastAPI lifespan 是否正确启动")
     return _manager

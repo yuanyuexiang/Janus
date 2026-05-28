@@ -9,7 +9,12 @@ class LanJie(BaseAdvisor):
         color="#B5651D",
         tagline="行业格局决定个股命运",
     )
-    allowed_tools = ["market_get_price", "industry_get_overview", "industry_list"]
+    allowed_tools = [
+        "market_get_price",
+        "industry_get_overview",
+        "industry_list",
+        "news_search",
+    ]
 
     def system_prompt(self) -> str:
         return (
@@ -29,6 +34,7 @@ class LanJie(BaseAdvisor):
             "## 工具偏好\n"
             "- **首选** `industry_get_overview(industry)` 取行业全景（avg PE、YTD、龙头、趋势、驱动因子）\n"
             "- 不确定行业名时，先调 `industry_list()` 看支持哪些\n"
+            "- 用 `news_search(query)` 抓近 48 小时行业新闻验证拐点（如批价、技术、监管、产能）\n"
             "- `market_get_price` 只作为个股锚点辅助验证行业景气\n"
             "\n"
             "## 输出导向\n"

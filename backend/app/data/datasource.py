@@ -1,11 +1,11 @@
-"""DataSource — multi-provider orchestrator with graceful fallback.
+"""DataSource —— 多 provider 编排器，带优雅回退。
 
-Chain order (highest priority first):
-  1. TushareProvider — if TUSHARE_TOKEN configured
-  2. MockProvider    — always present, final fallback
+provider 链优先级（从高到低）：
+  1. TushareProvider —— 当配置了 TUSHARE_TOKEN 时启用
+  2. MockProvider    —— 永远存在，作为最终兜底
 
-Each method walks the chain and returns the first non-None response, or a
-structured error envelope if all providers came up empty.
+每个方法依次走完链上的 provider，遇到第一个非 None 的返回值就用它；
+如果所有 provider 都没数据，返回结构化的错误信封（DataEnvelope.error）。
 """
 
 from __future__ import annotations
@@ -29,9 +29,9 @@ def _build_chain() -> list[DataProvider]:
             from app.data.providers.tushare_provider import TushareProvider
 
             chain.append(TushareProvider(token=settings.tushare_token))
-            logger.info("DataSource: TushareProvider enabled")
+            logger.info("DataSource: 已启用 TushareProvider")
         except Exception:
-            logger.exception("DataSource: failed to init TushareProvider; skipping")
+            logger.exception("DataSource: TushareProvider 初始化失败，跳过")
     chain.append(MockProvider())
     return chain
 
@@ -48,7 +48,7 @@ class DataSource:
             try:
                 result = await p.get_price(symbol)
             except Exception as e:
-                logger.warning("provider %s get_price failed: %s", p.name, e)
+                logger.warning("provider %s get_price 失败: %s", p.name, e)
                 continue
             if result is not None:
                 return ok(result, source=p.name)
@@ -59,7 +59,7 @@ class DataSource:
             try:
                 result = await p.get_macro_indicator(indicator)
             except Exception as e:
-                logger.warning("provider %s get_macro_indicator failed: %s", p.name, e)
+                logger.warning("provider %s get_macro_indicator 失败: %s", p.name, e)
                 continue
             if result is not None:
                 return ok(result, source=p.name)
@@ -70,7 +70,7 @@ class DataSource:
             try:
                 result = await p.get_industry_overview(industry)
             except Exception as e:
-                logger.warning("provider %s get_industry_overview failed: %s", p.name, e)
+                logger.warning("provider %s get_industry_overview 失败: %s", p.name, e)
                 continue
             if result is not None:
                 return ok(result, source=p.name)
@@ -81,11 +81,24 @@ class DataSource:
             try:
                 result = await p.get_kline(symbol, days)
             except Exception as e:
-                logger.warning("provider %s get_kline failed: %s", p.name, e)
+                logger.warning("provider %s get_kline 失败: %s", p.name, e)
                 continue
             if result is not None:
                 return ok(result, source=p.name)
         return err("SYMBOL_NOT_FOUND", f"未知标的：{symbol}")
+
+    async def search_news(
+        self, query: str | None = None, limit: int = 20
+    ) -> DataEnvelope:
+        for p in self.providers:
+            try:
+                result = await p.search_news(query, limit)
+            except Exception as e:
+                logger.warning("provider %s search_news 失败: %s", p.name, e)
+                continue
+            if result is not None:
+                return ok(result, source=p.name)
+        return err("NEWS_UNAVAILABLE", "新闻源暂不可用")
 
 
 @lru_cache

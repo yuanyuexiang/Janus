@@ -1,4 +1,4 @@
-"""Repository helpers for conversation persistence. MVP uses a single demo member."""
+"""会话持久化的仓储层 helper。MVP 阶段只用一个 demo member。"""
 
 from __future__ import annotations
 

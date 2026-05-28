@@ -403,93 +403,138 @@ export default function ChatPage() {
   const stageLabel = formatStage(stage, stageAdvisor);
   const placeholder = activeId ? "继续追问…  ⌘+↵ 发送" : "向圆桌提个问题…  ⌘+↵ 发送";
 
+  function ModeToggle({
+    mode,
+    setMode,
+    running,
+  }: {
+    mode: Mode;
+    setMode: (m: Mode) => void;
+    running: boolean;
+  }) {
+    return (
+      <div className="inline-flex items-center divide-x divide-parchment-300/70 rounded-sm border border-parchment-300/70 bg-parchment-50/60 font-display text-[11px] tracking-wider dark:divide-walnut-300/30 dark:border-walnut-300/30 dark:bg-walnut-700/40">
+        {MODE_OPTIONS.map((opt) => {
+          const on = mode === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => !running && setMode(opt.value)}
+              disabled={running}
+              title={opt.hint}
+              className={`px-3 py-1.5 transition-colors disabled:opacity-50 ${
+                on
+                  ? "bg-walnut-500 text-parchment-100 dark:bg-gilt-500 dark:text-walnut-900"
+                  : "text-walnut-100 hover:text-walnut-500 dark:text-parchment-200/70 dark:hover:text-gilt-300"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
-    <main className="flex h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-      <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-3 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-baseline gap-3">
-          <Link
-            href="/"
-            className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-          >
-            ← 返回
-          </Link>
-          <span className="text-xs uppercase tracking-widest text-amber-700 dark:text-amber-400">
-            Atlas Council · M2.5
-          </span>
-          <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">圆桌投研</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 rounded border border-zinc-200 p-0.5 text-xs dark:border-zinc-700">
-            {MODE_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => !running && setMode(opt.value)}
-                disabled={running}
-                title={opt.hint}
-                className={`rounded px-2 py-1 transition-colors ${
-                  mode === opt.value
-                    ? "bg-amber-700 text-white"
-                    : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400"
-                } disabled:opacity-50`}
-              >
-                {opt.label}
-              </button>
-            ))}
+    <main className="flex h-screen flex-col">
+      {/* 顶栏：羊皮纸底 + 金箔分隔线 */}
+      <header className="relative border-b border-parchment-300/60 bg-parchment-50/80 px-8 py-4 backdrop-blur dark:border-walnut-300/20 dark:bg-walnut-900/60">
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gilt-500/60 to-transparent" />
+        <div className="flex items-center justify-between gap-6">
+          <div className="flex items-baseline gap-4">
+            <Link
+              href="/"
+              className="font-display text-[12px] tracking-[0.2em] text-walnut-100 no-underline hover:text-gilt-700 dark:text-parchment-200/70 dark:hover:text-gilt-300"
+            >
+              ← 返回
+            </Link>
+            <div className="flex items-baseline gap-3">
+              <h1 className="font-display text-xl font-medium text-walnut-500 dark:text-parchment-100">
+                圆桌投研
+              </h1>
+              <span className="font-display text-[10px] uppercase tracking-[0.3em] text-gilt-700 dark:text-gilt-300">
+                Atlas Council
+              </span>
+            </div>
           </div>
-          {stageLabel && (
-            <span className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-600" />
-              {stageLabel}
-            </span>
-          )}
+          <div className="flex items-center gap-4">
+            <ModeToggle mode={mode} setMode={setMode} running={running} />
+            {stageLabel && (
+              <span className="flex items-center gap-2 font-display text-[11px] tracking-wider text-walnut-100 dark:text-parchment-200/70">
+                <span className="relative inline-flex h-1.5 w-1.5">
+                  <span className="absolute inset-0 animate-ping rounded-full bg-gilt-500/60" />
+                  <span className="absolute inset-0 rounded-full bg-gilt-500" />
+                </span>
+                {stageLabel}
+              </span>
+            )}
+          </div>
         </div>
       </header>
 
-      <div className="grid flex-1 grid-cols-[260px_1fr] overflow-hidden">
-        <ConversationList
-          items={convList}
-          activeId={activeId}
-          onSelect={loadConversation}
-          onNew={startNew}
-          onMutated={({ deletedId }) => {
-            if (deletedId && deletedId === activeId) {
-              setActiveId(null);
-              setTurns([]);
-            }
-            refreshList();
-          }}
-        />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="w-[260px] shrink-0">
+          <ConversationList
+            items={convList}
+            activeId={activeId}
+            onSelect={loadConversation}
+            onNew={startNew}
+            onMutated={({ deletedId }) => {
+              if (deletedId && deletedId === activeId) {
+                setActiveId(null);
+                setTurns([]);
+              }
+              refreshList();
+            }}
+          />
+        </div>
 
-        <section className="flex flex-col overflow-hidden">
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6">
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-8 py-10">
             {turns.length === 0 ? (
-              <div className="mx-auto max-w-3xl text-center text-sm text-zinc-500">
-                <p className="mb-4">
+              <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
+                {/* 印章 / 引文徽标 */}
+                <div className="relative mb-8 flex h-20 w-20 items-center justify-center">
+                  <div className="absolute inset-0 rounded-full border border-gilt-500/40" />
+                  <div className="absolute inset-2 rounded-full border border-gilt-500/30" />
+                  <span className="font-display text-3xl text-gilt-700 dark:text-gilt-300">桌</span>
+                </div>
+                <p className="mb-3 font-display text-xl text-walnut-500 dark:text-parchment-100">
                   {mode === "full"
-                    ? "向全员圆桌（6 位顾问）提个问题。6 路并行 + 主持人综合。"
+                    ? "全员议事 · 六位顾问"
                     : mode === "mini"
-                      ? "向圆桌（韬叔/岚姐/明哥）提个问题，3 位顾问并行，主持人最后综合。"
-                      : "向明哥（价值派）单独提个问题。"}
+                      ? "圆桌精简 · 三位顾问"
+                      : "单聊 · 明哥（价值派）"}
+                </p>
+                <p className="mb-10 max-w-md font-display text-[13px] italic leading-relaxed text-ink-600 dark:text-parchment-200/70">
+                  {mode === "full"
+                    ? "六位顾问并行思考，主持人执棋综合共识、分歧与风险。"
+                    : mode === "mini"
+                      ? "韬叔看宏观、岚姐看行业、明哥看价值；执棋最后综合。"
+                      : "向明哥提一个估值或基本面问题。"}
                 </p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {EXAMPLES.map((ex, i) => (
                     <button
                       key={i}
                       onClick={() => setQuestion(ex)}
-                      className="rounded border border-zinc-200 px-3 py-1.5 text-xs text-zinc-600 hover:border-amber-600 hover:text-amber-700 dark:border-zinc-700 dark:text-zinc-400"
+                      className="rounded-sm border border-parchment-300/70 bg-parchment-100/50 px-4 py-2 font-display text-[12px] text-walnut-100 transition-colors hover:border-gilt-500 hover:bg-gilt-500/10 hover:text-walnut-500 dark:border-walnut-300/30 dark:bg-walnut-700/30 dark:text-parchment-200/80 dark:hover:border-gilt-300 dark:hover:text-gilt-100"
                     >
-                      示例 {i + 1}
+                      示例 · {ex.slice(0, 22)}{ex.length > 22 ? "…" : ""}
                     </button>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="mx-auto max-w-3xl space-y-4">
+              <div className="mx-auto max-w-3xl space-y-5">
                 {turns.map((t, i) => {
                   if (t.kind === "user") {
                     return (
                       <div key={i} className="flex justify-end">
-                        <div className="max-w-[85%] rounded-lg bg-amber-700 px-4 py-2 text-sm text-white">
+                        <div
+                          className="max-w-[85%] rounded-sm border border-walnut-500/30 bg-walnut-500/[0.06] px-5 py-3 font-display text-[14px] leading-relaxed text-walnut-500 dark:border-gilt-500/30 dark:bg-gilt-500/[0.08] dark:text-parchment-100"
+                        >
                           {t.content}
                         </div>
                       </div>
@@ -561,34 +606,51 @@ export default function ChatPage() {
           </div>
 
           {error && (
-            <p className="mx-6 mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300">
+            <p className="mx-8 mb-3 shrink-0 rounded-sm border border-vermillion-500/30 bg-vermillion-500/[0.08] p-3 text-[13px] text-vermillion-700 dark:border-vermillion-300/30 dark:bg-vermillion-500/[0.15] dark:text-vermillion-300">
               {error}
             </p>
           )}
 
-          <div className="border-t border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="mx-auto flex max-w-3xl gap-2">
-              <textarea
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    submit();
-                  }
-                }}
-                rows={2}
-                disabled={running}
-                className="flex-1 resize-none rounded border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-amber-600 focus:outline-none disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
-                placeholder={placeholder}
-              />
-              <button
-                onClick={submit}
-                disabled={running || !question.trim()}
-                className="self-end rounded bg-amber-700 px-5 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-50"
-              >
-                {running ? "讨论中…" : "发送"}
-              </button>
+          <div className="relative shrink-0 border-t border-parchment-300 bg-parchment-100/60 px-8 py-3 shadow-[0_-8px_24px_-12px_rgba(61,40,23,0.1)] dark:border-walnut-300/30 dark:bg-walnut-900/70">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gilt-500/70 to-transparent" />
+            <div className="mx-auto max-w-3xl">
+              {/* 单行卡：textarea 左 + 圆角发送 icon 按钮右 */}
+              <div className="flex items-end gap-2 rounded-md border border-walnut-50/30 bg-parchment-50 py-2 pl-4 pr-2 shadow-paper transition focus-within:border-gilt-500 focus-within:shadow-paper-lg focus-within:ring-1 focus-within:ring-gilt-500/30 dark:border-walnut-300/40 dark:bg-walnut-700/50 dark:focus-within:border-gilt-300 dark:focus-within:ring-gilt-300/30">
+                <textarea
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      submit();
+                    }
+                  }}
+                  rows={1}
+                  disabled={running}
+                  placeholder={placeholder}
+                  className="block max-h-40 min-h-[28px] flex-1 resize-none bg-transparent py-1 font-display text-[14px] leading-7 text-ink-900 placeholder:font-display placeholder:italic placeholder:text-walnut-50/55 focus:outline-none disabled:opacity-50 dark:text-parchment-100 dark:placeholder:text-parchment-200/40"
+                />
+                <button
+                  onClick={submit}
+                  disabled={running || !question.trim()}
+                  title={running ? "讨论中…" : "发送 (↵)"}
+                  aria-label="发送"
+                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    running || !question.trim()
+                      ? "border-walnut-50/30 bg-transparent text-walnut-100 dark:border-walnut-300/30 dark:text-parchment-200/60"
+                      : "border-walnut-500 bg-walnut-500 text-parchment-100 hover:border-walnut-700 hover:bg-walnut-700 dark:border-gilt-500 dark:bg-gilt-500 dark:text-walnut-900 dark:hover:bg-gilt-300"
+                  }`}
+                >
+                  {running ? (
+                    <span className="relative inline-flex h-2 w-2">
+                      <span className="absolute inset-0 animate-ping rounded-full bg-current opacity-60" />
+                      <span className="absolute inset-0 rounded-full bg-current" />
+                    </span>
+                  ) : (
+                    <span className="text-lg leading-none">↵</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </section>

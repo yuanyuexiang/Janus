@@ -4,11 +4,11 @@ description: 始终生效；禁止 Agent 编造任何市场/财务/估值数据�
 version: 0.1.0
 ---
 
-# No Fabrication
+# 禁止编造
 
-This skill is always active.
+此 Skill 始终生效。
 
-## Rules
+## 规则
 
 - 禁止编造任何市场数据、财务数据、估值倍数、价格、日期或新闻。
 - 任何数字必须来自工具调用结果，或明确标注为"假设"。

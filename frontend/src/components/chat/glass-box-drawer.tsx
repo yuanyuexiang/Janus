@@ -36,8 +36,8 @@ export type GlassBoxDrawerProps = {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mb-5">
-      <h3 className="mb-2 text-xs font-medium uppercase tracking-widest text-zinc-500">
+    <section className="mb-6">
+      <h3 className="mb-2.5 font-display text-[11px] uppercase tracking-[0.3em] text-walnut-100 dark:text-parchment-200/80">
         {title}
       </h3>
       <div>{children}</div>
@@ -47,7 +47,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function JsonBlock({ data }: { data: unknown }) {
   return (
-    <pre className="overflow-x-auto rounded bg-zinc-100 p-3 font-mono text-[11px] leading-snug text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+    <pre className="overflow-x-auto rounded-sm border border-parchment-300/60 bg-parchment-50/80 p-3 font-mono text-[11px] leading-snug text-ink-600 dark:border-walnut-300/30 dark:bg-walnut-900/40 dark:text-parchment-200/80">
       {JSON.stringify(data, null, 2)}
     </pre>
   );
@@ -55,9 +55,9 @@ function JsonBlock({ data }: { data: unknown }) {
 
 function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[110px_1fr] gap-2 py-1 text-sm">
-      <span className="text-zinc-500">{label}</span>
-      <span className="text-zinc-800 dark:text-zinc-200">{value}</span>
+    <div className="grid grid-cols-[110px_1fr] gap-2 py-1.5 text-[13px]">
+      <span className="font-display text-walnut-100 dark:text-parchment-200/70">{label}</span>
+      <span className="text-ink-900 dark:text-parchment-100">{value}</span>
     </div>
   );
 }
@@ -67,12 +67,21 @@ function AdvisorView({ data }: { data: Extract<GlassBoxData, { kind: "advisor" }
     <>
       <Section title="元信息">
         <MetaRow label="顾问" value={`${data.display} · ${data.role} (${data.name})`} />
-        <MetaRow label="模型" value={data.model ?? <em className="text-zinc-400">未知</em>} />
+        <MetaRow
+          label="模型"
+          value={
+            data.model ? (
+              <code className="font-mono text-[12px]">{data.model}</code>
+            ) : (
+              <em className="font-display text-walnut-50/60 dark:text-parchment-200/50">未知</em>
+            )
+          }
+        />
         {(data.tokensIn || data.tokensOut) && (
           <MetaRow
             label="Token 用量"
             value={
-              <span className="font-mono text-xs">
+              <span className="font-mono text-[12px]">
                 in {data.tokensIn ?? 0} · out {data.tokensOut ?? 0} · total{" "}
                 {(data.tokensIn ?? 0) + (data.tokensOut ?? 0)}
               </span>
@@ -80,14 +89,14 @@ function AdvisorView({ data }: { data: Extract<GlassBoxData, { kind: "advisor" }
           />
         )}
         <MetaRow
-          label="颜色标识"
+          label="颜色"
           value={
             <span className="flex items-center gap-2">
               <span
-                className="inline-block h-3 w-3 rounded"
+                className="inline-block h-3 w-3 rounded-sm"
                 style={{ background: data.color }}
               />
-              <code className="text-xs">{data.color}</code>
+              <code className="font-mono text-[11px]">{data.color}</code>
             </span>
           }
         />
@@ -95,13 +104,15 @@ function AdvisorView({ data }: { data: Extract<GlassBoxData, { kind: "advisor" }
 
       <Section title={`Active Skills (${data.activeSkills.length})`}>
         {data.activeSkills.length === 0 ? (
-          <p className="text-sm text-zinc-400">本轮未激活任何 Skills（可能来自旧历史会话）</p>
+          <p className="font-display text-[12px] italic text-walnut-50/60 dark:text-parchment-200/50">
+            本轮未激活任何 Skills（可能来自旧历史会话）
+          </p>
         ) : (
           <ul className="space-y-1">
             {data.activeSkills.map((s) => (
               <li
                 key={s}
-                className="rounded bg-zinc-50 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                className="rounded-sm bg-parchment-50/80 px-2 py-1 font-mono text-[11px] text-walnut-500 dark:bg-walnut-900/40 dark:text-parchment-200"
               >
                 {s}
               </li>
@@ -112,26 +123,32 @@ function AdvisorView({ data }: { data: Extract<GlassBoxData, { kind: "advisor" }
 
       <Section title={`工具调用 (${data.toolCalls.length})`}>
         {data.toolCalls.length === 0 ? (
-          <p className="text-sm text-zinc-400">本轮未调用任何工具</p>
+          <p className="font-display text-[12px] italic text-walnut-50/60 dark:text-parchment-200/50">
+            本轮未调用任何工具
+          </p>
         ) : (
           <ul className="space-y-3">
             {data.toolCalls.map((tc, i) => (
               <li
                 key={tc.id || i}
-                className="rounded border border-zinc-200 p-2 dark:border-zinc-800"
+                className="rounded-sm border border-parchment-300/60 bg-parchment-50/40 p-2.5 dark:border-walnut-300/30 dark:bg-walnut-900/30"
               >
-                <div className="mb-1 font-mono text-xs text-amber-700 dark:text-amber-400">
+                <div className="mb-1.5 font-mono text-[12px] text-gilt-700 dark:text-gilt-300">
                   {tc.tool}
                 </div>
-                <div className="text-[10px] uppercase tracking-wide text-zinc-400">args</div>
+                <div className="font-display text-[10px] uppercase tracking-wider text-walnut-100 dark:text-parchment-200/60">
+                  args
+                </div>
                 <JsonBlock data={tc.args} />
-                <div className="mt-2 text-[10px] uppercase tracking-wide text-zinc-400">
+                <div className="mt-2 font-display text-[10px] uppercase tracking-wider text-walnut-100 dark:text-parchment-200/60">
                   result
                 </div>
                 {tc.result ? (
                   <JsonBlock data={tc.result} />
                 ) : (
-                  <p className="text-xs text-zinc-400">(无结果或尚未返回)</p>
+                  <p className="font-display text-[11px] italic text-walnut-50/60 dark:text-parchment-200/50">
+                    (无结果或尚未返回)
+                  </p>
                 )}
               </li>
             ))}
@@ -143,7 +160,9 @@ function AdvisorView({ data }: { data: Extract<GlassBoxData, { kind: "advisor" }
         {data.opinion ? (
           <JsonBlock data={data.opinion} />
         ) : (
-          <p className="text-sm text-zinc-400">未产出结构化观点</p>
+          <p className="font-display text-[12px] italic text-walnut-50/60 dark:text-parchment-200/50">
+            未产出结构化观点
+          </p>
         )}
       </Section>
     </>
@@ -159,12 +178,21 @@ function ConductorView({
     <>
       <Section title="元信息">
         <MetaRow label="角色" value="执棋 · 主持人 / 综合者" />
-        <MetaRow label="模型" value={data.model ?? <em className="text-zinc-400">未知</em>} />
+        <MetaRow
+          label="模型"
+          value={
+            data.model ? (
+              <code className="font-mono text-[12px]">{data.model}</code>
+            ) : (
+              <em className="font-display text-walnut-50/60 dark:text-parchment-200/50">未知</em>
+            )
+          }
+        />
         {(data.tokensIn || data.tokensOut) && (
           <MetaRow
             label="Token 用量"
             value={
-              <span className="font-mono text-xs">
+              <span className="font-mono text-[12px]">
                 in {data.tokensIn ?? 0} · out {data.tokensOut ?? 0} · total{" "}
                 {(data.tokensIn ?? 0) + (data.tokensOut ?? 0)}
               </span>
@@ -175,13 +203,15 @@ function ConductorView({
 
       <Section title={`参与顾问 (${data.advisorsContributed.length})`}>
         {data.advisorsContributed.length === 0 ? (
-          <p className="text-sm text-zinc-400">无</p>
+          <p className="font-display text-[12px] italic text-walnut-50/60 dark:text-parchment-200/50">
+            无
+          </p>
         ) : (
-          <ul className="flex flex-wrap gap-1">
+          <ul className="flex flex-wrap gap-1.5">
             {data.advisorsContributed.map((n) => (
               <li
                 key={n}
-                className="rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                className="rounded-sm border border-gilt-500/40 bg-gilt-500/10 px-2 py-0.5 font-mono text-[11px] text-gilt-900 dark:border-gilt-300/40 dark:bg-gilt-500/15 dark:text-gilt-100"
               >
                 {n}
               </li>
@@ -194,13 +224,15 @@ function ConductorView({
         {data.summary ? (
           <JsonBlock data={data.summary} />
         ) : (
-          <p className="text-sm text-zinc-400">综合中或未产出</p>
+          <p className="font-display text-[12px] italic text-walnut-50/60 dark:text-parchment-200/50">
+            综合中或未产出
+          </p>
         )}
       </Section>
 
       {data.streamingText && (
         <Section title="原始 Prose">
-          <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded bg-zinc-100 p-3 font-mono text-[11px] text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+          <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-sm border border-parchment-300/60 bg-parchment-50/80 p-3 font-mono text-[11px] text-ink-600 dark:border-walnut-300/30 dark:bg-walnut-900/40 dark:text-parchment-200/80">
             {data.streamingText}
           </pre>
         </Section>
@@ -223,10 +255,14 @@ export function GlassBoxDrawer({ data, onClose }: GlassBoxDrawerProps) {
 
   const title =
     data.kind === "advisor"
-      ? `Glass Box · ${data.display}`
-      : "Glass Box · 执棋";
+      ? `${data.display}`
+      : "执棋";
+  const subtitle =
+    data.kind === "advisor"
+      ? `透明面板 · ${data.role}`
+      : "透明面板 · 主持人 / 综合者";
 
-  const titleColor = data.kind === "advisor" ? data.color : "#A16207";
+  const titleColor = data.kind === "advisor" ? data.color : "var(--color-gilt-700)";
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -234,31 +270,35 @@ export function GlassBoxDrawer({ data, onClose }: GlassBoxDrawerProps) {
         type="button"
         onClick={onClose}
         aria-label="关闭详情"
-        className="flex-1 bg-zinc-900/30 backdrop-blur-[1px]"
+        className="flex-1 bg-walnut-900/30 backdrop-blur-[2px]"
       />
-      <aside className="flex w-[480px] max-w-full flex-col border-l border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
-        <header
-          className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800"
-          style={{ borderTopColor: titleColor, borderTopWidth: 3 }}
-        >
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-zinc-500">
-              详情 · 透明面板
-            </p>
-            <h2 className="text-base font-semibold" style={{ color: titleColor }}>
-              {title}
-            </h2>
+      <aside className="relative flex w-[520px] max-w-full flex-col border-l border-gilt-500/30 bg-parchment-50 shadow-paper-lg dark:border-gilt-500/20 dark:bg-walnut-900">
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-gilt-500/60 to-transparent" />
+
+        <header className="border-b border-parchment-300/60 px-6 py-5 dark:border-walnut-300/20">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-display text-[10px] uppercase tracking-[0.3em] text-gilt-700 dark:text-gilt-300">
+                {subtitle}
+              </p>
+              <h2
+                className="mt-1 font-display text-2xl"
+                style={{ color: titleColor }}
+              >
+                {title}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-sm border border-parchment-300/70 px-2 py-1 font-display text-sm text-walnut-100 transition-colors hover:border-gilt-500 hover:text-gilt-700 dark:border-walnut-300/40 dark:text-parchment-200 dark:hover:border-gilt-300 dark:hover:text-gilt-100"
+              aria-label="关闭"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-            aria-label="关闭"
-          >
-            ✕
-          </button>
         </header>
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           {data.kind === "advisor" ? (
             <AdvisorView data={data} />
           ) : (

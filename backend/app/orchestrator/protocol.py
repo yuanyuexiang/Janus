@@ -1,4 +1,4 @@
-"""Structured protocols — advisor opinion + conductor's council summary."""
+"""结构化协议 —— 顾问的 AdvisorOpinion + 主持人的 CouncilSummary。"""
 
 from typing import Any, Literal
 
@@ -29,7 +29,7 @@ class RiskItem(BaseModel):
 
 class DisagreementItem(BaseModel):
     point: str
-    sides: dict[str, list[str]]  # {"bullish": [...], "bearish": [...], "conditional": [...]}
+    sides: dict[str, list[str]]  # {"bullish": [...], "bearish": [...], "conditional": [...]} 之类的多方对比
 
 
 class CouncilSummary(BaseModel):

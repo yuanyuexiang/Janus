@@ -108,12 +108,17 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
           onSelect();
         }
       }}
-      className={`group block w-full cursor-pointer px-3 py-2 text-left text-sm transition-colors ${
+      className={`group relative block w-full cursor-pointer px-5 py-3 text-left text-sm transition-colors ${
         active
-          ? "bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
-          : "text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
+          ? "bg-parchment-200/60 dark:bg-walnut-300/20"
+          : "hover:bg-parchment-100/60 dark:hover:bg-walnut-700/50"
       } ${busy ? "opacity-50" : ""}`}
     >
+      {/* 选中：左侧金箔细条 */}
+      {active && (
+        <span className="absolute left-0 top-3 bottom-3 w-[2px] bg-gilt-500" />
+      )}
+
       {editing ? (
         <input
           ref={inputRef}
@@ -131,29 +136,31 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
             }
           }}
           maxLength={128}
-          className="w-full rounded border border-amber-600 bg-white px-1 py-0.5 text-sm text-zinc-900 focus:outline-none dark:bg-zinc-950 dark:text-zinc-100"
+          className="w-full rounded-sm border border-gilt-500/60 bg-parchment-50 px-1.5 py-0.5 font-display text-[14px] text-ink-900 focus:outline-none focus:border-gilt-500 dark:border-gilt-500/40 dark:bg-walnut-900/60 dark:text-parchment-100"
         />
       ) : (
-        <div className="line-clamp-2 font-medium leading-snug">
+        <div className="line-clamp-2 font-display text-[14px] leading-snug text-ink-900 dark:text-parchment-100">
           {item.title ?? "(无标题)"}
         </div>
       )}
 
       <div className="mt-1 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[10px] text-zinc-500">
+        <div className="flex items-center gap-2 font-mono text-[10px] text-ink-400 dark:text-parchment-200/60">
           <span>{formatDate(item.updated_at)}</span>
           {item.mode && (
-            <span className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">{item.mode}</span>
+            <span className="rounded-sm border border-parchment-300/70 px-1 py-px font-display text-[9px] tracking-wider uppercase text-walnut-100 dark:border-walnut-300/30 dark:text-parchment-200/70">
+              {item.mode}
+            </span>
           )}
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-zinc-400 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex items-center gap-3 font-display text-[10px] tracking-wider text-ink-400 opacity-0 transition-opacity group-hover:opacity-100 dark:text-parchment-200/60">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               setEditing(true);
             }}
-            className="hover:text-amber-700 dark:hover:text-amber-400"
+            className="hover:text-gilt-700 dark:hover:text-gilt-300"
             title="改名"
           >
             改名
@@ -161,7 +168,7 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
           <button
             type="button"
             onClick={handleExport}
-            className="hover:text-amber-700 dark:hover:text-amber-400"
+            className="hover:text-gilt-700 dark:hover:text-gilt-300"
             title="导出 Markdown"
           >
             导出
@@ -169,7 +176,7 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
           <button
             type="button"
             onClick={handleDelete}
-            className="hover:text-red-600 dark:hover:text-red-400"
+            className="hover:text-vermillion-500 dark:hover:text-vermillion-300"
             title="删除"
           >
             删除
@@ -188,20 +195,23 @@ export function ConversationList({
   onMutated,
 }: ConversationListProps) {
   return (
-    <aside className="flex h-full flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="border-b border-zinc-200 p-3 dark:border-zinc-800">
+    <aside className="flex h-full flex-col border-r border-parchment-300/60 bg-parchment-50/60 dark:border-walnut-300/20 dark:bg-walnut-900/40">
+      <div className="border-b border-parchment-300/60 px-5 py-4 dark:border-walnut-300/20">
         <button
           onClick={onNew}
-          className="w-full rounded bg-amber-700 px-3 py-2 text-sm font-medium text-white hover:bg-amber-800"
+          className="group flex w-full items-center justify-center gap-2 rounded-sm border border-walnut-500 bg-walnut-500 px-3 py-2.5 font-display text-[13px] tracking-wider text-parchment-100 transition-colors hover:border-walnut-700 hover:bg-walnut-700 dark:border-gilt-500 dark:bg-transparent dark:text-gilt-100 dark:hover:bg-gilt-500/15"
         >
-          + 新对话
+          <span className="text-base leading-none">+</span>
+          <span>新对话</span>
         </button>
       </div>
       <nav className="flex-1 overflow-y-auto">
         {items.length === 0 ? (
-          <p className="p-4 text-xs text-zinc-500">还没有历史会话</p>
+          <p className="p-5 font-display italic text-xs text-ink-400 dark:text-parchment-200/50">
+            还没有历史会话
+          </p>
         ) : (
-          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          <ul className="divide-y divide-parchment-300/40 dark:divide-walnut-300/15">
             {items.map((c) => (
               <li key={c.id}>
                 <ConversationRow

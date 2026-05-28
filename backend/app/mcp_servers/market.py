@@ -1,9 +1,9 @@
-"""Market data MCP server.
+"""行情数据 MCP server。
 
-Backed by the DataSource chain (TushareProvider when token configured →
-MockProvider fallback). Speaks MCP over stdio.
+底层走 DataSource 链（配了 TUSHARE_TOKEN 时优先 TushareProvider，
+否则落到 MockProvider）。通过 stdio 协议被 backend 进程拉起。
 
-Run as: `python -m app.mcp_servers.market`
+运行方式：`python -m app.mcp_servers.market`
 """
 
 from mcp.server.fastmcp import FastMCP
@@ -15,18 +15,16 @@ mcp = FastMCP("market")
 
 @mcp.tool()
 async def market_get_price(symbol: str) -> dict:
-    """Get the latest price snapshot for a stock symbol.
+    """取标的的最新行情快照。
 
-    Symbols accept both raw (`600519`) and qualified (`600519.SH`) forms for
-    A-shares; bare tickers for US (`AAPL`, `MSFT`, `NVDA`). Returns:
+    Symbol 同时接受裸代码（`600519`）和带后缀的标准形式（`600519.SH`）；
+    美股用裸 ticker（`AAPL`、`MSFT`、`NVDA`）。返回：
 
-      - `symbol` (normalized), `name`, `price` (close), `change_pct`, `pe`
-      - When the data comes from Tushare: also `pb`, `trade_date`,
-        `turnover_rate`, `circ_mv`
-      - envelope `source` field tells which provider answered (`tushare` / `mock`)
+      - `symbol`（归一化后）、`name`、`price`（收盘）、`change_pct`、`pe`
+      - 数据来自 Tushare 时还附带：`pb`、`trade_date`、`turnover_rate`、`circ_mv`
+      - 信封的 `source` 字段标识来源（`tushare` / `mock`）
 
-    Always check `ok` before reading `data`. When `ok=false`, do **not**
-    invent figures; report the data gap instead.
+    使用 `data` 前请先检查 `ok`。`ok=false` 时**不要**编造数字，明确告诉用户数据缺失。
     """
     ds = get_data_source()
     return await ds.get_price(symbol)
@@ -34,17 +32,16 @@ async def market_get_price(symbol: str) -> dict:
 
 @mcp.tool()
 async def market_get_kline(symbol: str, days: int = 30) -> dict:
-    """Get daily OHLCV K-line bars for a symbol.
+    """取标的的日 K 线 OHLCV 数据。
 
-    Args:
-      - `symbol`: e.g. `600519`, `600519.SH`, `AAPL`. Raw 6-digit A-share codes
-        are auto-suffixed (.SH/.SZ/.BJ).
-      - `days`: number of bars (5-120, default 30).
+    参数：
+      - `symbol`：例如 `600519`、`600519.SH`、`AAPL`。裸 6 位 A 股代码会自动
+        补后缀（.SH/.SZ/.BJ）。
+      - `days`：返回多少根（5-120，默认 30）。
 
-    Returns the bars (oldest first) plus a summary block (range_high, range_low,
-    range_pct_chg over the window, avg_volume). When `source=mock`, the series
-    is a deterministic pseudo random walk seeded by symbol — not real market
-    data; explicitly warn the user when relying on it.
+    返回 bars（按日期升序）加一份 summary（区间最高 / 最低 / 区间涨跌幅 /
+    平均成交量）。当 `source=mock` 时数据是 symbol 种子的伪随机游走 ——
+    **不是真实行情**，使用时务必告诉用户。
     """
     ds = get_data_source()
     return await ds.get_kline(symbol, days)

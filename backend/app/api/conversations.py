@@ -1,4 +1,4 @@
-"""Conversation list / detail / patch / delete / export."""
+"""会话相关 API：列表 / 详情 / 改名 / 删除 / 导出。"""
 
 from datetime import datetime
 from typing import Literal
@@ -125,7 +125,7 @@ async def delete_one(conv_id: UUID, db: AsyncSession = Depends(get_db)) -> Respo
     return Response(status_code=204)
 
 
-# ----------------------------- Export -----------------------------
+# ----------------------------- 导出 -----------------------------
 
 ADVISOR_DISPLAY = {
     "tao_shu": ("韬叔", "宏观"),

@@ -1,8 +1,8 @@
-"""Shared response envelope used by all data providers + MCP tools.
+"""所有数据 provider + MCP 工具共用的响应信封。
 
-The shape mirrors the MCP tool output convention agreed in v2 §6.5:
-`{ ok, data, source, as_of, error }`. Providers return None when they
-don't have the requested data so DataSource can fall through.
+形状沿用 v2 §6.5 约定的 MCP 工具输出协议：
+`{ ok, data, source, as_of, error }`。当 provider 没有对应数据时返回 None，
+让 DataSource 继续往下一个 provider 探。
 """
 
 from datetime import datetime, timezone

@@ -18,6 +18,7 @@ MCP_SERVER_MODULES = [
     "app.mcp_servers.market",
     "app.mcp_servers.macro",
     "app.mcp_servers.industry",
+    "app.mcp_servers.news",
 ]
 
 
@@ -27,7 +28,7 @@ async def lifespan(app: FastAPI):
     try:
         await manager.start(MCP_SERVER_MODULES)
     except Exception:
-        logger.exception("MCP startup failed — app will run without tools")
+        logger.exception("MCP 启动失败 —— 应用将以无工具模式继续运行")
         await manager.stop()
     set_manager(manager)
     try:

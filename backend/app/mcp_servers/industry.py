@@ -1,10 +1,9 @@
-"""Industry overview MCP server.
+"""行业概览 MCP server。
 
-Exposes `industry_get_overview(industry)`. M3 v1 backed by MockProvider's
-curated industry table (8 sectors). M3.1 swaps in Tushare `index_basic` +
-`index_daily` for live sector indices.
+暴露 `industry_get_overview(industry)`。M3 v1 走 MockProvider 的预置行业表
+（8 个板块）。M3.1 起对接 Tushare `index_basic` + `index_daily` 拉真实行业指数。
 
-Run as: `python -m app.mcp_servers.industry`
+运行方式：`python -m app.mcp_servers.industry`
 """
 
 from typing import Any
@@ -19,14 +18,14 @@ mcp = FastMCP("industry")
 
 @mcp.tool()
 async def industry_get_overview(industry: str) -> dict:
-    """Get a structured overview of a Chinese A-share industry.
+    """取一个 A 股行业的结构化概览。
 
-    Accepts canonical names (白酒 / 锂电池 / 银行 / 半导体 / 创新药 / 证券 /
-    新能源汽车 / 公用事业) or common aliases (动力电池 → 锂电池, 电动车 →
-    新能源汽车, 芯片 → 半导体, etc.).
+    接受标准行业名（白酒 / 锂电池 / 银行 / 半导体 / 创新药 / 证券 /
+    新能源汽车 / 公用事业），也接受常用别名（动力电池 → 锂电池，
+    电动车 → 新能源汽车，芯片 → 半导体 等等）。
 
-    Returns: name, average P/E, YTD return, top constituents, narrative trend,
-    and key drivers to watch. Always check `ok` before reading `data`.
+    返回：name、平均 PE、年初至今涨跌幅、龙头成分股、趋势描述、关键观察因子。
+    使用 `data` 前请先检查 `ok`。
     """
     ds = get_data_source()
     return await ds.get_industry_overview(industry)
@@ -34,7 +33,7 @@ async def industry_get_overview(industry: str) -> dict:
 
 @mcp.tool()
 async def industry_list() -> dict[str, Any]:
-    """List every industry name that `industry_get_overview` recognises."""
+    """列出 `industry_get_overview` 支持的所有行业名。"""
     return {
         "ok": True,
         "data": {"industries": known_industries()},

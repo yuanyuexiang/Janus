@@ -1,26 +1,133 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* -------- Atlas Council 设计 token -------- */
+/* 议事厅美学：胡桃木 + 羊皮纸 + 金箔 */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* 调色板 */
+  --color-parchment-50:  #FBF7EE;   /* 最亮羊皮纸 (页面底色) */
+  --color-parchment-100: #F5EBD9;   /* 标准羊皮纸 (PRD spec) */
+  --color-parchment-200: #ECDFC4;   /* 卡片底色 / 略深 */
+  --color-parchment-300: #D9C8A4;   /* 分隔线 / 弱边框 */
+
+  --color-walnut-50:  #8A6F58;
+  --color-walnut-100: #6E5440;
+  --color-walnut-300: #5C4634;
+  --color-walnut-500: #3D2817;      /* PRD 主色 */
+  --color-walnut-700: #2A1B0F;
+  --color-walnut-900: #1A0F08;
+
+  --color-gilt-100: #E7D49E;
+  --color-gilt-300: #D8BE7C;
+  --color-gilt-500: #C9A961;        /* PRD 强调色 (金箔) */
+  --color-gilt-700: #A28245;
+  --color-gilt-900: #7A6131;
+
+  --color-ink-400: #6B5A4A;
+  --color-ink-600: #4A3C30;
+  --color-ink-900: #1F1612;          /* 正文文字 (深墨) */
+
+  --color-vermillion-300: #C76060;
+  --color-vermillion-500: #9B2C2C;   /* PRD 警示 (暗红) */
+  --color-vermillion-700: #6B1F1F;
+
+  --color-sage-300: #9AB18A;
+  --color-sage-500: #708A60;          /* 正向 (墨青) */
+  --color-sage-700: #4F6645;
+
+  --color-slate-card: #2B2419;        /* 暗色卡 (深色模式) */
+
+  /* 字体族 (next/font 会注入 --font-sans-inter 和 --font-serif-sc) */
+  --font-display: var(--font-serif-sc), "Source Han Serif SC", "Songti SC", "STSong", serif;
+  --font-sans: var(--font-sans-inter), "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* 阴影：柔和 + 暖色调 */
+  --shadow-paper: 0 1px 2px rgba(61, 40, 23, 0.04), 0 2px 6px rgba(61, 40, 23, 0.06);
+  --shadow-paper-lg: 0 4px 12px rgba(61, 40, 23, 0.08), 0 12px 28px rgba(61, 40, 23, 0.10);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* -------- 基础样式 -------- */
+
+html, body {
+  background-color: var(--color-parchment-50);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" on, "ss01" on;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* 微妙的羊皮纸纹理（线性渐变叠加，纯色看着平） */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(201, 169, 97, 0.04), transparent 60%),
+    radial-gradient(at 100% 100%, rgba(61, 40, 23, 0.03), transparent 50%);
+  background-attachment: fixed;
+}
+
+/* 标题用宋体 */
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* 引用块默认宋体斜体 (PRD: 专家发言点缀) */
+blockquote {
+  font-family: var(--font-display);
+  font-style: italic;
+}
+
+/* 链接：金箔下划线 */
+a {
+  color: var(--color-walnut-500);
+  text-decoration: underline;
+  text-decoration-color: var(--color-gilt-500);
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+a:hover {
+  color: var(--color-gilt-700);
+}
+
+/* 表单元素：羊皮纸底 + 胡桃木边 */
+input, textarea, select {
+  font-family: inherit;
+}
+
+/* 选区颜色 */
+::selection {
+  background-color: var(--color-gilt-300);
+  color: var(--color-walnut-700);
+}
+
+/* 滚动条（webkit）：低调金箔 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-parchment-300);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-walnut-50); }
+
+/* 深色模式（夜读议事厅） */
+@media (prefers-color-scheme: dark) {
+  html, body {
+    background-color: var(--color-walnut-900);
+    color: var(--color-parchment-100);
+  }
+  body {
+    background-image:
+      radial-gradient(at 0% 0%, rgba(201, 169, 97, 0.06), transparent 60%),
+      radial-gradient(at 100% 100%, rgba(245, 235, 217, 0.03), transparent 50%);
+  }
+  a { color: var(--color-gilt-300); text-decoration-color: var(--color-gilt-700); }
+  a:hover { color: var(--color-gilt-100); }
+  ::selection {
+    background-color: var(--color-gilt-700);
+    color: var(--color-parchment-100);
+  }
+  ::-webkit-scrollbar-thumb { background: var(--color-walnut-300); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-walnut-100); }
 }
