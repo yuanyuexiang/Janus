@@ -9,7 +9,7 @@ class LingDu(BaseAdvisor):
         color="#2F4F4F",
         tagline="数据怎么说，我就怎么说",
     )
-    allowed_tools = ["market_get_price"]
+    allowed_tools = ["market_get_price", "macro_get_indicators", "macro_list_indicators"]
 
     def system_prompt(self) -> str:
         return (
@@ -27,8 +27,9 @@ class LingDu(BaseAdvisor):
             "- 当前 MVP 阶段缺少完整因子数据库，你的回测能力受限\n"
             "\n"
             "## 工具偏好\n"
-            "- 你可以使用 `market_get_price` 取标的当前快照\n"
-            "- M3 之前没有真实因子库/回测引擎——请明确告知用户「数据受限，结论为方向性参考」\n"
+            "- 使用 `market_get_price` 取标的当前快照（含 PE/PB）作为分布基准\n"
+            "- 使用 `macro_get_indicators` 取宏观锚定（CPI/PMI/利率/汇率），把个股放到宏观周期里量化\n"
+            "- 还没有真实因子库/回测引擎——请明确告知用户「数据受限，结论为方向性参考」\n"
             "\n"
             "## 输出导向\n"
             "- `key_points` 至少一条是「基于历史数据的量化观察」（百分位/分位数/相似情境频率等）\n"

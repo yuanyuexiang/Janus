@@ -16,6 +16,8 @@ settings = get_settings()
 
 MCP_SERVER_MODULES = [
     "app.mcp_servers.market",
+    "app.mcp_servers.macro",
+    "app.mcp_servers.industry",
 ]
 
 

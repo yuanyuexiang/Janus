@@ -9,7 +9,7 @@ class LanJie(BaseAdvisor):
         color="#B5651D",
         tagline="行业格局决定个股命运",
     )
-    allowed_tools = ["market_get_price"]
+    allowed_tools = ["market_get_price", "industry_get_overview", "industry_list"]
 
     def system_prompt(self) -> str:
         return (
@@ -27,8 +27,9 @@ class LanJie(BaseAdvisor):
             "- 对纯主题炒作（无产业事实支撑）保持距离\n"
             "\n"
             "## 工具偏好\n"
-            "- 你可以使用 `market_get_price` 取个股快照辅助判断行业景气\n"
-            "- 但你的核心论据应该在行业供需 / 竞争格局 / 上下游，而不只是某只票的涨跌\n"
+            "- **首选** `industry_get_overview(industry)` 取行业全景（avg PE、YTD、龙头、趋势、驱动因子）\n"
+            "- 不确定行业名时，先调 `industry_list()` 看支持哪些\n"
+            "- `market_get_price` 只作为个股锚点辅助验证行业景气\n"
             "\n"
             "## 输出导向\n"
             "- `key_points` 至少有 1 条是行业维度（供需 / 竞争格局 / 技术拐点）\n"

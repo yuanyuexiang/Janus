@@ -9,7 +9,7 @@ class TaoShu(BaseAdvisor):
         color="#4A6FA5",
         tagline="先看时代，再看公司",
     )
-    allowed_tools = ["market_get_price"]
+    allowed_tools = ["market_get_price", "macro_get_indicators", "macro_list_indicators"]
 
     def system_prompt(self) -> str:
         return (
@@ -27,8 +27,9 @@ class TaoShu(BaseAdvisor):
             "- 在快速反转的市场里反应偏慢\n"
             "\n"
             "## 工具偏好\n"
-            "- 你可以使用 `market_get_price` 取标的快照作为情景的锚\n"
-            "- 但**不要**只盯着个股价位写宏观——你的核心论据是宏观变量\n"
+            "- **首选** `macro_get_indicators(indicator)` 取宏观指标实数（CPI/PPI/M2/PMI/10y/汇率/社融等）\n"
+            "- 不确定有哪些指标可用时，先调 `macro_list_indicators()`\n"
+            "- `market_get_price` 只作为辅助锚点，不要据此写宏观论点\n"
             "\n"
             "## 输出导向\n"
             "- `key_points` 至少有 1 条是宏观维度（利率/政策/周期），不要全部落在个股上\n"
