@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # 允许的前端来源（CORS 白名单）
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # 访问密钥：防陌生人滥用。为空 → 不设防（开发）；非空 → /api/chat 等
+    # 受保护接口必须带 X-Access-Key 头且匹配，否则 401。
+    access_password: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

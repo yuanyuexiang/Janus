@@ -273,7 +273,7 @@ export function ConversationList({
       <div className="border-b border-parchment-300/60 px-4 py-3 dark:border-walnut-300/20">
         <button
           onClick={onNew}
-          className="group flex w-full items-center justify-center gap-2 rounded-sm border border-walnut-500/40 bg-transparent px-3 py-2 font-display text-[13px] tracking-wider text-walnut-500 transition-colors hover:border-gilt-500 hover:bg-gilt-500/[0.08] hover:text-walnut-700 dark:border-gilt-500/40 dark:text-gilt-100 dark:hover:border-gilt-300 dark:hover:bg-gilt-500/15"
+          className="group flex w-full items-center justify-center gap-2 rounded-lg border border-walnut-500/40 bg-transparent px-3 py-2.5 font-display text-[13px] tracking-wider text-walnut-500 transition-colors hover:border-gilt-500 hover:bg-gilt-500/[0.08] hover:text-walnut-700 dark:border-gilt-500/40 dark:text-gilt-100 dark:hover:border-gilt-300 dark:hover:bg-gilt-500/15"
         >
           <span className="text-base leading-none text-gilt-700 group-hover:text-walnut-700 dark:text-gilt-300 dark:group-hover:text-gilt-100">+</span>
           <span>新对话</span>

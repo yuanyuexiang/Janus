@@ -84,7 +84,7 @@ export function AdvisorBubble({
   const showStream = !opinion;
   return (
     <article
-      className="relative rounded-sm border border-parchment-300/70 bg-parchment-100/40 px-6 py-5 shadow-paper transition-shadow hover:shadow-paper-lg dark:border-walnut-300/30 dark:bg-walnut-700/40"
+      className="relative rounded-2xl border border-parchment-300/60 bg-parchment-100/40 px-6 py-5 shadow-paper transition-shadow hover:shadow-paper-lg dark:border-walnut-300/30 dark:bg-walnut-700/40"
     >
       {/* 印章头像 + 顾问标识 */}
       <div className="mb-4 flex items-start justify-between gap-3">

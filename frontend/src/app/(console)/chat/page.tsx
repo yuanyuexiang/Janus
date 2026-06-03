@@ -5,8 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AdvisorBubble } from "@/components/chat/advisor-bubble";
 import { ConductorSummary } from "@/components/chat/conductor-summary";
 import { ConversationList } from "@/components/chat/conversation-list";
-import { NavRail, type RailView } from "@/components/chat/nav-rail";
-import { StatusView } from "@/components/chat/status-view";
 import {
   GlassBoxDrawer,
   type GlassBoxData,
@@ -45,7 +43,7 @@ function ModeToggle({
   running: boolean;
 }) {
   return (
-    <div className="inline-flex items-center divide-x divide-parchment-300/70 rounded-sm border border-parchment-300/70 bg-parchment-50/60 font-display text-[11px] tracking-wider dark:divide-walnut-300/30 dark:border-walnut-300/30 dark:bg-walnut-700/40">
+    <div className="inline-flex items-center gap-0.5 rounded-lg border border-parchment-300/40 bg-parchment-100/40 p-0.5 font-display text-[11px] tracking-wider dark:border-walnut-300/20 dark:bg-walnut-700/30">
       {MODE_OPTIONS.map((opt) => {
         const on = mode === opt.value;
         return (
@@ -54,10 +52,10 @@ function ModeToggle({
             onClick={() => !running && setMode(opt.value)}
             disabled={running}
             title={opt.hint}
-            className={`px-3 py-1.5 transition-colors disabled:opacity-50 ${
+            className={`rounded-md px-3 py-1 transition-colors disabled:opacity-50 ${
               on
-                ? "bg-walnut-500 text-parchment-100 dark:bg-gilt-500 dark:text-walnut-900 nasdaq:bg-gilt-500 nasdaq:text-parchment-50"
-                : "text-walnut-100 hover:text-walnut-500 dark:text-parchment-200/70 dark:hover:text-gilt-300"
+                ? "bg-gilt-500/15 text-gilt-700 ring-1 ring-inset ring-gilt-500/35 dark:text-gilt-200 dark:ring-gilt-300/30"
+                : "text-walnut-100 hover:text-walnut-500 dark:text-parchment-200/55 dark:hover:text-gilt-300"
             }`}
           >
             {opt.label}
@@ -228,8 +226,6 @@ export default function ChatPage() {
   const [stageAdvisor, setStageAdvisor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [glassBox, setGlassBox] = useState<GlassBoxData | null>(null);
-  // 左侧导航栏当前页：对话 / 服务状态
-  const [view, setView] = useState<RailView>("chat");
   // 窄屏侧栏开关；md 以上侧栏常驻
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // 用户离底超过阈值时显示"↓ 新消息"浮按钮
@@ -515,14 +511,7 @@ export default function ChatPage() {
   const placeholder = activeId ? "继续追问…  ⌘+↵ 发送" : "向圆桌提个问题…  ⌘+↵ 发送";
 
   return (
-    <main className="flex h-screen">
-      {/* 最左导航栏：对话 / 服务状态 */}
-      <NavRail active={view} onChange={setView} />
-
-      {view === "status" ? (
-        <StatusView />
-      ) : (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <>
       {/* 顶栏：羊皮纸底 + 金箔分隔线 */}
       <header className="relative border-b border-parchment-300/60 bg-parchment-50/80 px-4 py-4 backdrop-blur md:px-8 dark:border-walnut-300/20 dark:bg-walnut-900/60">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gilt-500/60 to-transparent" />
@@ -618,38 +607,41 @@ export default function ChatPage() {
             className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-10"
           >
             {turns.length === 0 ? (
-              <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
+              <div className="mx-auto flex max-w-2xl flex-col items-center pt-6 text-center">
                 {/* 印章 / 引文徽标 */}
-                <div className="relative mb-8 flex h-20 w-20 items-center justify-center">
+                <div className="relative mb-6 flex h-[72px] w-[72px] items-center justify-center">
                   <div className="absolute inset-0 rounded-full border border-gilt-500/40" />
-                  <div className="absolute inset-2 rounded-full border border-gilt-500/30" />
+                  <div className="absolute inset-2 rounded-full border border-gilt-500/25" />
                   <span className="font-display text-3xl text-gilt-700 dark:text-gilt-300">桌</span>
                 </div>
-                <p className="mb-3 font-display text-xl text-walnut-500 dark:text-parchment-100">
+                <h2 className="mb-2.5 font-display text-[22px] font-medium tracking-wide text-walnut-500 dark:text-parchment-100">
                   {mode === "full"
                     ? "全员议事 · 六位顾问"
                     : mode === "mini"
                       ? "圆桌精简 · 三位顾问"
                       : "单聊 · 明哥（价值派）"}
-                </p>
-                <p className="mb-10 max-w-md font-display text-[13px] italic leading-relaxed text-ink-600 dark:text-parchment-200/70">
+                </h2>
+                <p className="mb-9 max-w-md font-display text-[13.5px] italic leading-relaxed text-ink-600 dark:text-parchment-200/65">
                   {mode === "full"
                     ? "六位顾问并行思考，主持人执棋综合共识、分歧与风险。"
                     : mode === "mini"
                       ? "韬叔看宏观、岚姐看行业、明哥看价值；执棋最后综合。"
                       : "向明哥提一个估值或基本面问题。"}
                 </p>
-                <div className="flex w-full max-w-xl flex-col gap-2">
+                <div className="flex w-full max-w-xl flex-col gap-2.5">
                   {EXAMPLES.map((ex, i) => (
                     <button
                       key={i}
                       onClick={() => setQuestion(ex)}
-                      className="group flex w-full items-start gap-3 rounded-sm border border-parchment-300/70 bg-parchment-100/40 px-4 py-3 text-left font-display text-[13px] leading-relaxed text-ink-600 transition-colors hover:border-gilt-500 hover:bg-gilt-500/[0.08] hover:text-walnut-500 dark:border-walnut-300/30 dark:bg-walnut-700/30 dark:text-parchment-200/80 dark:hover:border-gilt-300 dark:hover:text-gilt-100"
+                      className="group flex w-full items-center gap-3 rounded-xl border border-parchment-300/60 bg-parchment-100/40 px-4 py-3 text-left font-display text-[13.5px] leading-relaxed text-ink-600 transition-all hover:border-gilt-500/70 hover:bg-gilt-500/[0.07] hover:text-walnut-500 hover:shadow-paper dark:border-walnut-300/25 dark:bg-walnut-700/25 dark:text-parchment-200/80 dark:hover:border-gilt-300/60 dark:hover:text-gilt-100"
                     >
-                      <span className="mt-0.5 shrink-0 font-display text-[10px] uppercase tracking-[0.2em] text-gilt-700 dark:text-gilt-300">
+                      <span className="shrink-0 rounded-md bg-gilt-500/12 px-2 py-0.5 font-display text-[10px] uppercase tracking-[0.18em] text-gilt-700 dark:bg-gilt-500/15 dark:text-gilt-300">
                         示例
                       </span>
                       <span className="flex-1">{ex}</span>
+                      <span className="shrink-0 text-gilt-700/0 transition-colors group-hover:text-gilt-700 dark:group-hover:text-gilt-300">
+                        →
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -661,7 +653,7 @@ export default function ChatPage() {
                     return (
                       <div key={i} className="flex justify-end">
                         <div
-                          className="max-w-[85%] rounded-sm border border-walnut-500/30 bg-walnut-500/[0.06] px-5 py-3 font-display text-[14px] leading-relaxed text-walnut-500 dark:border-gilt-500/30 dark:bg-gilt-500/[0.08] dark:text-parchment-100"
+                          className="max-w-[85%] rounded-2xl rounded-br-md border border-walnut-500/25 bg-walnut-500/[0.06] px-5 py-3 font-display text-[14px] leading-relaxed text-walnut-500 dark:border-gilt-500/25 dark:bg-gilt-500/[0.08] dark:text-parchment-100"
                         >
                           {t.content}
                         </div>
@@ -749,7 +741,7 @@ export default function ChatPage() {
           {error && (
             <div
               role="alert"
-              className="mx-4 mb-3 flex shrink-0 items-start gap-3 rounded-sm border border-vermillion-500/30 bg-vermillion-500/[0.08] p-3 text-[13px] text-vermillion-700 md:mx-8 dark:border-vermillion-300/30 dark:bg-vermillion-500/[0.15] dark:text-vermillion-300"
+              className="mx-4 mb-3 flex shrink-0 items-start gap-3 rounded-xl border border-vermillion-500/30 bg-vermillion-500/[0.08] p-3 text-[13px] text-vermillion-700 md:mx-8 dark:border-vermillion-300/30 dark:bg-vermillion-500/[0.15] dark:text-vermillion-300"
             >
               <span className="flex-1 leading-relaxed">{error}</span>
               {lastQuestion && (
@@ -782,11 +774,10 @@ export default function ChatPage() {
             </div>
           )}
 
-          <div className="relative shrink-0 border-t border-parchment-300 bg-parchment-100/60 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(61,40,23,0.1)] md:px-8 dark:border-walnut-300/30 dark:bg-walnut-900/70">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gilt-500/70 to-transparent" />
+          <div className="relative shrink-0 px-4 pb-5 pt-2 md:px-8">
             <div className="mx-auto max-w-3xl">
-              {/* 单行卡：textarea 左 + 圆角发送 icon 按钮右 */}
-              <div className="flex items-end gap-2 rounded-md border border-walnut-50/30 bg-parchment-50 py-2 pl-4 pr-2 shadow-paper transition focus-within:border-gilt-500 focus-within:shadow-paper-lg focus-within:ring-1 focus-within:ring-gilt-500/30 dark:border-walnut-300/40 dark:bg-walnut-700/50 dark:focus-within:border-gilt-300 dark:focus-within:ring-gilt-300/30">
+              {/* 输入卡：textarea + 右下角发送药丸 */}
+              <div className="flex items-end gap-2.5 rounded-2xl border border-parchment-300/70 bg-parchment-50 py-2.5 pl-5 pr-2.5 shadow-paper-lg transition focus-within:border-gilt-500/70 focus-within:ring-2 focus-within:ring-gilt-500/20 dark:border-walnut-300/35 dark:bg-walnut-700/50 dark:focus-within:border-gilt-300/60 dark:focus-within:ring-gilt-300/20">
                 <textarea
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
@@ -799,17 +790,17 @@ export default function ChatPage() {
                   rows={1}
                   disabled={running}
                   placeholder={placeholder}
-                  className="block max-h-40 min-h-[28px] flex-1 resize-none bg-transparent py-1 font-display text-[14px] leading-7 text-ink-900 placeholder:font-display placeholder:italic placeholder:text-walnut-50/55 focus:outline-none disabled:opacity-50 dark:text-parchment-100 dark:placeholder:text-parchment-200/40"
+                  className="block max-h-40 min-h-[30px] flex-1 resize-none bg-transparent py-1 font-display text-[14.5px] leading-7 text-ink-900 placeholder:font-display placeholder:not-italic placeholder:text-walnut-50/50 focus:outline-none disabled:opacity-50 dark:text-parchment-100 dark:placeholder:text-parchment-200/40"
                 />
                 <button
                   onClick={submit}
                   disabled={running || !question.trim()}
                   title={running ? "讨论中…" : "发送 (↵)"}
                   aria-label="发送"
-                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all disabled:cursor-not-allowed ${
                     running || !question.trim()
-                      ? "border-walnut-50/30 bg-transparent text-walnut-100 dark:border-walnut-300/30 dark:text-parchment-200/60"
-                      : "border-walnut-500 bg-walnut-500 text-parchment-100 hover:border-walnut-700 hover:bg-walnut-700 dark:border-gilt-500 dark:bg-gilt-500 dark:text-walnut-900 dark:hover:bg-gilt-300 nasdaq:border-gilt-500 nasdaq:bg-gilt-500 nasdaq:text-parchment-50 nasdaq:hover:bg-gilt-300"
+                      ? "bg-parchment-200/70 text-walnut-50/60 dark:bg-walnut-900/50 dark:text-parchment-200/40"
+                      : "bg-walnut-500 text-parchment-100 shadow-paper hover:bg-walnut-700 dark:bg-gilt-500 dark:text-walnut-900 dark:hover:bg-gilt-300 nasdaq:bg-gilt-500 nasdaq:text-parchment-50 nasdaq:hover:bg-gilt-300"
                   }`}
                 >
                   {running ? (
@@ -818,18 +809,21 @@ export default function ChatPage() {
                       <span className="absolute inset-0 rounded-full bg-current" />
                     </span>
                   ) : (
-                    <span className="text-lg leading-none">↵</span>
+                    <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]">
+                      <path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   )}
                 </button>
               </div>
+              <p className="mt-2 px-1 text-center font-display text-[11px] text-walnut-50/45 dark:text-parchment-200/30">
+                投研内容由 AI 生成，仅供参考，不构成投资建议
+              </p>
             </div>
           </div>
         </section>
       </div>
-      </div>
-      )}
 
       <GlassBoxDrawer data={glassBox} onClose={() => setGlassBox(null)} />
-    </main>
+    </>
   );
 }

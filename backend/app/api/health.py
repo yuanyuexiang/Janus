@@ -1,4 +1,5 @@
 import httpx
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +9,19 @@ from app.data.datasource import get_data_source
 from app.db.session import get_db
 
 router = APIRouter(tags=["health"])
+
+
+async def _probe_redis() -> bool:
+    """best-effort PING Redis。"""
+    settings = get_settings()
+    try:
+        client = aioredis.from_url(settings.redis_url, socket_connect_timeout=1.5)
+        try:
+            return bool(await client.ping())
+        finally:
+            await client.aclose()
+    except Exception:
+        return False
 
 
 async def _probe_choice() -> dict:
@@ -33,6 +47,8 @@ async def _probe_choice() -> dict:
 
 @router.get("/api/health")
 async def health(db: AsyncSession = Depends(get_db)) -> dict:
+    settings = get_settings()
+
     db_ok = False
     try:
         result = await db.execute(text("SELECT 1"))
@@ -40,12 +56,17 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
     except Exception:
         db_ok = False
 
+    redis_ok = await _probe_redis()
     choice = await _probe_choice()
+    chain = get_data_source().provider_names()
+
     return {
         "status": "ok",
         "db": db_ok,
+        "redis": redis_ok,
         "data_source": {
-            "chain": get_data_source().provider_names(),
+            "chain": chain,
             "choice": choice,
+            "tushare": {"configured": bool(settings.tushare_token)},
         },
     }

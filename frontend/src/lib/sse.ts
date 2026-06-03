@@ -1,4 +1,5 @@
-import { API_BASE } from "@/lib/api";
+import { API_BASE, handleUnauthorized } from "@/lib/api";
+import { authHeaders } from "@/lib/auth";
 import type { ChatEvent } from "@/lib/types";
 
 export type ChatRequestOpts = {
@@ -19,11 +20,12 @@ export async function* streamChat(
 
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
     signal,
   });
   if (!res.ok || !res.body) {
+    handleUnauthorized(res.status);
     throw new Error(`Chat API ${res.status}`);
   }
 

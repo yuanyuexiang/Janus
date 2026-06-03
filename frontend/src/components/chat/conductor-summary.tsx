@@ -115,7 +115,7 @@ export function ConductorSummary({
   const showStream = !summary;
 
   return (
-    <article className="relative overflow-hidden rounded-sm border border-gilt-500/40 bg-parchment-100/60 px-6 py-6 shadow-paper-lg dark:border-gilt-500/30 dark:bg-walnut-700/60">
+    <article className="relative overflow-hidden rounded-2xl border border-gilt-500/40 bg-parchment-100/60 px-6 py-6 shadow-paper-lg dark:border-gilt-500/30 dark:bg-walnut-700/60">
       {/* 金箔细线装饰 (顶 + 底) */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
