@@ -47,7 +47,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function JsonBlock({ data }: { data: unknown }) {
   return (
-    <pre className="overflow-x-auto rounded-sm border border-parchment-300/60 bg-parchment-50/80 p-3 font-mono text-[11px] leading-snug text-ink-600 dark:border-walnut-300/30 dark:bg-walnut-900/40 dark:text-parchment-200/80">
+    <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-sm border border-parchment-300/60 bg-parchment-50/80 p-3 font-mono text-[11px] leading-snug text-ink-600 dark:border-walnut-300/30 dark:bg-walnut-900/40 dark:text-parchment-200/80">
       {JSON.stringify(data, null, 2)}
     </pre>
   );
@@ -55,7 +55,7 @@ function JsonBlock({ data }: { data: unknown }) {
 
 function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[110px_1fr] gap-2 py-1.5 text-[13px]">
+    <div className="flex flex-col gap-0.5 py-1.5 text-[13px] sm:grid sm:grid-cols-[110px_1fr] sm:gap-2">
       <span className="font-display text-walnut-100 dark:text-parchment-200/70">{label}</span>
       <span className="text-ink-900 dark:text-parchment-100">{value}</span>
     </div>
@@ -275,7 +275,7 @@ export function GlassBoxDrawer({ data, onClose }: GlassBoxDrawerProps) {
       <aside className="relative flex w-[520px] max-w-full flex-col border-l border-gilt-500/30 bg-parchment-50 shadow-paper-lg dark:border-gilt-500/20 dark:bg-walnut-900">
         <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-gilt-500/60 to-transparent" />
 
-        <header className="border-b border-parchment-300/60 px-6 py-5 dark:border-walnut-300/20">
+        <header className="border-b border-parchment-300/60 px-4 py-4 md:px-6 md:py-5 dark:border-walnut-300/20">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="font-display text-[10px] uppercase tracking-[0.3em] text-gilt-700 dark:text-gilt-300">
@@ -298,7 +298,7 @@ export function GlassBoxDrawer({ data, onClose }: GlassBoxDrawerProps) {
             </button>
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-6">
           {data.kind === "advisor" ? (
             <AdvisorView data={data} />
           ) : (

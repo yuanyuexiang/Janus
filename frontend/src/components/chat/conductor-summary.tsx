@@ -7,6 +7,31 @@ const VERDICT_LABEL: Record<CouncilSummary["verdict"], string> = {
   split: "明显分歧",
 };
 
+// 分歧块中各方立场标签 —— 跟 AdvisorBubble 的 STANCE_LABEL 保持一致
+// 后端可能传 "bullish" / "bearish" / "neutral" 等，也可能是 "看多方" 这种自由文本，
+// 命中映射时翻译，未命中时回退原文展示
+const STANCE_LABEL: Record<string, string> = {
+  bullish: "看多",
+  bearish: "看空",
+  neutral: "中性",
+  conditional: "有条件",
+};
+
+const STANCE_TONE: Record<string, string> = {
+  bullish: "border-sage-500/40 text-sage-700 dark:border-sage-300/40 dark:text-sage-300",
+  bearish: "border-vermillion-500/40 text-vermillion-700 dark:border-vermillion-300/40 dark:text-vermillion-300",
+  neutral: "border-parchment-300/70 text-walnut-100 dark:border-walnut-300/40 dark:text-parchment-200/80",
+  conditional: "border-gilt-500/40 text-gilt-900 dark:border-gilt-300/40 dark:text-gilt-100",
+};
+
+function formatStance(raw: string): { label: string; tone: string } {
+  const key = raw.toLowerCase().trim();
+  return {
+    label: STANCE_LABEL[key] ?? raw,
+    tone: STANCE_TONE[key] ?? STANCE_TONE.neutral,
+  };
+}
+
 const VERDICT_TONE: Record<CouncilSummary["verdict"], string> = {
   strong_consensus: "bg-sage-500/15 text-sage-700 ring-sage-500/40 dark:bg-sage-500/20 dark:text-sage-300 dark:ring-sage-300/40",
   weak_consensus: "bg-gilt-500/15 text-gilt-900 ring-gilt-500/40 dark:bg-gilt-500/20 dark:text-gilt-100 dark:ring-gilt-300/40",
@@ -104,7 +129,7 @@ export function ConductorSummary({
               执棋整理中…
             </p>
           )}
-          <span className="ml-0.5 inline-block h-3 w-[2px] animate-pulse bg-gilt-500 align-middle" />
+          <span className="ml-0.5 inline-block h-3 w-[2px] bg-gilt-500 align-middle motion-safe:animate-pulse" />
         </div>
       ) : (
         summary && (
@@ -136,18 +161,23 @@ export function ConductorSummary({
                         {d.point}
                       </div>
                       <div className="space-y-2">
-                        {Object.entries(d.sides).map(([stance, args]) => (
-                          <div key={stance} className="flex gap-3">
-                            <span className="mt-0.5 shrink-0 rounded-sm border border-parchment-300/70 px-1.5 py-0.5 font-display text-[10px] uppercase tracking-wider text-walnut-100 dark:border-walnut-300/40 dark:text-parchment-200/80">
-                              {stance}
-                            </span>
-                            <ul className="list-inside list-[square] marker:text-walnut-50/60 space-y-0.5 text-ink-600 dark:text-parchment-200/80">
-                              {args.map((a, j) => (
-                                <li key={j}>{a}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
+                        {Object.entries(d.sides).map(([stance, args]) => {
+                          const { label, tone } = formatStance(stance);
+                          return (
+                            <div key={stance} className="flex gap-3">
+                              <span
+                                className={`mt-0.5 shrink-0 rounded-sm border px-1.5 py-0.5 font-display text-[10px] tracking-wider ${tone}`}
+                              >
+                                {label}
+                              </span>
+                              <ul className="list-inside list-[square] marker:text-walnut-50/60 space-y-0.5 text-ink-600 dark:text-parchment-200/80">
+                                {args.map((a, j) => (
+                                  <li key={j}>{a}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })}
                       </div>
                     </li>
                   ))}
@@ -175,9 +205,6 @@ export function ConductorSummary({
                     >
                       <div className="mb-1.5 flex items-center gap-2">
                         <SeverityBar level={r.severity} />
-                        <span className="font-display text-[10px] uppercase tracking-wider text-walnut-100 dark:text-parchment-200/70">
-                          严重度 {r.severity}/5
-                        </span>
                       </div>
                       <div className="text-ink-900 dark:text-parchment-100">
                         {r.risk}

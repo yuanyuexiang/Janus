@@ -52,8 +52,10 @@ export function AdvisorBubble({
           >
             {display}
           </span>
+          {/* role 是中文（"宏观"/"行业"），不上 uppercase；
+              用细小字距和淡化的同色让它当主名的副线 */}
           <span
-            className="font-display text-[11px] uppercase tracking-[0.2em]"
+            className="font-display text-[12px] tracking-wide opacity-70"
             style={{ color }}
           >
             {role}
@@ -108,7 +110,7 @@ export function AdvisorBubble({
             </p>
           )}
           <span
-            className="ml-0.5 inline-block h-3 w-[2px] animate-pulse align-middle"
+            className="ml-0.5 inline-block h-3 w-[2px] align-middle motion-safe:animate-pulse"
             style={{ backgroundColor: color }}
           />
         </div>

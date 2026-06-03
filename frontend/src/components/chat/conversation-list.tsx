@@ -8,6 +8,7 @@ import {
   renameConversation,
   type ConversationSummary,
 } from "@/lib/api";
+import { getAdvisorMeta } from "@/lib/advisors";
 
 export type ConversationListProps = {
   items: ConversationSummary[];
@@ -20,6 +21,18 @@ export type ConversationListProps = {
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+// 把后端 mode tag 翻译成短中文徽章；solo:ming_ge → "单聊·明哥"
+function formatMode(mode: string | null | undefined): string | null {
+  if (!mode) return null;
+  if (mode === "full") return "全员";
+  if (mode === "mini") return "精简";
+  if (mode.startsWith("solo:")) {
+    const advisor = mode.slice(5);
+    return `单聊·${getAdvisorMeta(advisor).display}`;
+  }
+  return mode;
 }
 
 function downloadUrl(url: string, filename: string) {
@@ -97,6 +110,8 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
     downloadUrl(exportConversationUrl(item.id, "md"), `${safeTitle}.md`);
   }
 
+  const modeLabel = formatMode(item.mode);
+
   return (
     <div
       role="button"
@@ -108,10 +123,10 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
           onSelect();
         }
       }}
-      className={`group relative block w-full cursor-pointer px-5 py-3 text-left text-sm transition-colors ${
+      className={`group relative block w-full cursor-pointer px-4 py-3 text-left text-sm transition-colors ${
         active
           ? "bg-parchment-200/60 dark:bg-walnut-300/20"
-          : "hover:bg-parchment-100/60 dark:hover:bg-walnut-700/50"
+          : "hover:bg-parchment-100/60 dark:hover:bg-walnut-700/40"
       } ${busy ? "opacity-50" : ""}`}
     >
       {/* 选中：左侧金箔细条 */}
@@ -144,16 +159,18 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
         </div>
       )}
 
-      <div className="mt-1 flex items-center justify-between">
-        <div className="flex items-center gap-2 font-mono text-[10px] text-ink-400 dark:text-parchment-200/60">
-          <span>{formatDate(item.updated_at)}</span>
-          {item.mode && (
-            <span className="rounded-sm border border-parchment-300/70 px-1 py-px font-display text-[9px] tracking-wider uppercase text-walnut-100 dark:border-walnut-300/30 dark:text-parchment-200/70">
-              {item.mode}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3 font-display text-[10px] tracking-wider text-ink-400 opacity-0 transition-opacity group-hover:opacity-100 dark:text-parchment-200/60">
+      {/* 元数据行：日期左，右侧 mode 徽章 ↔ 操作按钮 hover 互换 */}
+      <div className="relative mt-1.5 flex items-center justify-between gap-2">
+        <span className="whitespace-nowrap font-mono text-[10px] text-ink-400 dark:text-parchment-200/50">
+          {formatDate(item.updated_at)}
+        </span>
+        {modeLabel && (
+          <span className="truncate font-display text-[10px] text-walnut-100 transition-opacity group-hover:opacity-0 dark:text-parchment-200/60">
+            {modeLabel}
+          </span>
+        )}
+        {/* 操作按钮：仅 hover 显示，覆盖在 mode 标签之上 */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-3 font-display text-[10px] tracking-wider text-ink-400 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 dark:text-parchment-200/70">
           <button
             type="button"
             onClick={(e) => {
@@ -196,12 +213,12 @@ export function ConversationList({
 }: ConversationListProps) {
   return (
     <aside className="flex h-full flex-col border-r border-parchment-300/60 bg-parchment-50/60 dark:border-walnut-300/20 dark:bg-walnut-900/40">
-      <div className="border-b border-parchment-300/60 px-5 py-4 dark:border-walnut-300/20">
+      <div className="border-b border-parchment-300/60 px-4 py-3 dark:border-walnut-300/20">
         <button
           onClick={onNew}
-          className="group flex w-full items-center justify-center gap-2 rounded-sm border border-walnut-500 bg-walnut-500 px-3 py-2.5 font-display text-[13px] tracking-wider text-parchment-100 transition-colors hover:border-walnut-700 hover:bg-walnut-700 dark:border-gilt-500 dark:bg-transparent dark:text-gilt-100 dark:hover:bg-gilt-500/15"
+          className="group flex w-full items-center justify-center gap-2 rounded-sm border border-walnut-500/40 bg-transparent px-3 py-2 font-display text-[13px] tracking-wider text-walnut-500 transition-colors hover:border-gilt-500 hover:bg-gilt-500/[0.08] hover:text-walnut-700 dark:border-gilt-500/40 dark:text-gilt-100 dark:hover:border-gilt-300 dark:hover:bg-gilt-500/15"
         >
-          <span className="text-base leading-none">+</span>
+          <span className="text-base leading-none text-gilt-700 group-hover:text-walnut-700 dark:text-gilt-300 dark:group-hover:text-gilt-100">+</span>
           <span>新对话</span>
         </button>
       </div>

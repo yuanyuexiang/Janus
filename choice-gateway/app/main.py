@@ -17,6 +17,9 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv  # 必须在 sdk 模块读 os.environ 之前调用
+load_dotenv()
+
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 
@@ -85,35 +88,75 @@ def _require_sdk() -> tuple | None:
 
 @app.get("/api/price")
 async def get_price(symbol: str = Query(..., description="标的代码，例 600519.SH / AAPL")) -> JSONResponse:
+    """行情快照。
+    实现细节：账号当前只开通历史数据，无实时行情权限（NOW / CHGPCT 报 service error），
+    所以 price 取最近收盘价 + change_pct 自算 (last_close - prev_close) / prev_close。
+    投研场景一日延迟可接受。"""
     fail = _require_sdk()
     if fail:
         return fail
     sym = normalize_symbol(symbol)
+    from datetime import datetime, timedelta
+
+    # 截面静态指标：名称 / 估值 / 当日量额（NOW 和 CHGPCT 没权限，绕开）
     try:
-        # 截面：股票名 + 现价 + 涨跌幅 + PE_TTM + PB
-        result = await sdk.call(
-            "css",
+        css_r = await sdk.call("css", sym, "NAME,PETTM,PBMRQ")
+    except Exception as e:
+        env, _ = err("CHOICE_CALL_FAILED", f"css: {e}")
+        return JSONResponse(env)
+    if sym not in css_r.Codes:
+        env, _ = err("NO_DATA", f"Choice 未返回 {sym} 的截面数据")
+        return JSONResponse(env)
+    static = dict(zip(css_r.Indicators, css_r.Data[sym]))
+
+    # 近 7 个自然日的 CLOSE/VOLUME/AMOUNT —— 取倒数两根算最新价 + 日涨跌
+    end_d = datetime.utcnow().date()
+    start_d = end_d - timedelta(days=7)
+    try:
+        csd_r = await sdk.call(
+            "csd",
             sym,
-            "NAME,NOW,CHGPCT,PETTM,PBMRQ,VOLUME,AMOUNT",
+            "CLOSE,VOLUME,AMOUNT",
+            start_d.strftime("%Y-%m-%d"),
+            end_d.strftime("%Y-%m-%d"),
+            "Period=1,AdjustFlag=1",
         )
     except Exception as e:
-        env, code = err("CHOICE_CALL_FAILED", str(e), 200)
+        env, _ = err("CHOICE_CALL_FAILED", f"csd: {e}")
         return JSONResponse(env)
-    if sym not in result.Codes:
-        env, code = err("NO_DATA", f"Choice 未返回 {sym} 的数据", 200)
-        return JSONResponse(env)
-    row = result.Data[sym]
-    inds = result.Indicators
-    val = dict(zip(inds, row))
+
+    price = prev_price = change_pct = volume = amount = trade_date = None
+    if sym in csd_r.Codes:
+        closes = csd_r.Data[sym][0]  # CLOSE
+        vols = csd_r.Data[sym][1]    # VOLUME
+        amts = csd_r.Data[sym][2]    # AMOUNT
+        dates = list(csd_r.Dates)
+        # 末尾可能是 None（当天还没收盘）—— 从后往前找第一个非 None
+        for i in range(len(closes) - 1, -1, -1):
+            if closes[i] is not None:
+                price = closes[i]
+                volume = vols[i]
+                amount = amts[i]
+                trade_date = str(dates[i])
+                # 再往前找一根算涨跌
+                for j in range(i - 1, -1, -1):
+                    if closes[j] is not None:
+                        prev_price = closes[j]
+                        break
+                break
+        if price is not None and prev_price:
+            change_pct = round((price - prev_price) / prev_price * 100, 2)
+
     payload = {
         "symbol": sym,
-        "name": val.get("NAME"),
-        "price": val.get("NOW"),
-        "change_pct": val.get("CHGPCT"),
-        "pe": val.get("PETTM"),
-        "pb": val.get("PBMRQ"),
-        "volume": val.get("VOLUME"),
-        "amount": val.get("AMOUNT"),
+        "name": static.get("NAME"),
+        "price": price,
+        "change_pct": change_pct,
+        "pe": static.get("PETTM"),
+        "pb": static.get("PBMRQ"),
+        "volume": volume,
+        "amount": amount,
+        "trade_date": trade_date,
     }
     return JSONResponse(ok(payload))
 
@@ -218,6 +261,9 @@ async def get_macro(indicator: str = Query(...)) -> JSONResponse:
 
 @app.get("/api/industry")
 async def get_industry(industry: str = Query(...)) -> JSONResponse:
+    """行业指数概览。
+    实现与 get_price 同思路：实时 NOW/CHGPCT 和 CHGPCTNYEAR(YTD) 账号无权限，
+    用 CLOSE 历史序列自算最新值 + 日涨跌 + YTD（从年初首根 vs 最近一根）。"""
     fail = _require_sdk()
     if fail:
         return fail
@@ -225,29 +271,73 @@ async def get_industry(industry: str = Query(...)) -> JSONResponse:
     if not meta:
         env, _ = err("UNKNOWN_INDUSTRY", f"没有指数映射：{industry}", 200)
         return JSONResponse(env)
+    code = meta["code"]
+    from datetime import datetime, timedelta
+
+    # 名称（静态指标）
     try:
-        # 截面取行业指数：名称 + 现价 + 当日涨跌 + 年初至今
-        result = await sdk.call(
-            "css",
-            meta["code"],
-            "NAME,NOW,CHGPCT,CHGPCTNYEAR",
+        css_r = await sdk.call("css", code, "NAME")
+    except Exception as e:
+        env, _ = err("CHOICE_CALL_FAILED", f"css: {e}")
+        return JSONResponse(env)
+
+    # CLOSE 序列：从去年年底拉到今天，覆盖 YTD 区间
+    today = datetime.utcnow().date()
+    start_d = today.replace(month=1, day=1) - timedelta(days=10)  # 留余量取年初首根
+    try:
+        csd_r = await sdk.call(
+            "csd",
+            code,
+            "CLOSE",
+            start_d.strftime("%Y-%m-%d"),
+            today.strftime("%Y-%m-%d"),
+            "Period=1,AdjustFlag=1",
         )
     except Exception as e:
-        env, _ = err("CHOICE_CALL_FAILED", str(e))
+        env, _ = err("CHOICE_CALL_FAILED", f"csd: {e}")
         return JSONResponse(env)
-    if meta["code"] not in result.Codes:
-        env, _ = err("NO_DATA", f"行业指数 {meta['code']} 无数据", 200)
-        return JSONResponse(env)
-    row = result.Data[meta["code"]]
-    val = dict(zip(result.Indicators, row))
+
+    index_value = change_pct = ytd_return = trade_date = ytd_start_value = None
+    if code in csd_r.Codes:
+        closes = csd_r.Data[code][0]
+        dates = list(csd_r.Dates)
+        # 倒序找最新一根非 None
+        last_i = None
+        for i in range(len(closes) - 1, -1, -1):
+            if closes[i] is not None:
+                last_i = i
+                index_value = closes[i]
+                trade_date = str(dates[i])
+                break
+        # 日涨跌：再往前找一根
+        if last_i is not None:
+            for j in range(last_i - 1, -1, -1):
+                if closes[j] is not None:
+                    change_pct = round((closes[last_i] - closes[j]) / closes[j] * 100, 2)
+                    break
+        # YTD：找今年 1/1 之后的第一根（约等于年初首个交易日的收盘）
+        year_start = today.replace(month=1, day=1).strftime("%Y/%m/%d")
+        for k, d in enumerate(dates):
+            if str(d) >= year_start and closes[k] is not None:
+                ytd_start_value = closes[k]
+                break
+        if ytd_start_value and index_value:
+            ytd_return = round((index_value - ytd_start_value) / ytd_start_value * 100, 2)
+
+    name = csd_r.Codes and meta["name"]
+    if css_r.ErrorCode == 0 and code in css_r.Codes:
+        # 用 SDK 返回的官方名优先
+        name = css_r.Data[code][0] or meta["name"]
+
     return JSONResponse(
         ok(
             {
-                "name": meta["name"],
-                "index_code": meta["code"],
-                "index_value": val.get("NOW"),
-                "change_pct": val.get("CHGPCT"),
-                "ytd_return": val.get("CHGPCTNYEAR"),
+                "name": name,
+                "index_code": code,
+                "index_value": index_value,
+                "change_pct": change_pct,
+                "ytd_return": ytd_return,
+                "trade_date": trade_date,
             }
         )
     )
@@ -255,29 +345,45 @@ async def get_industry(industry: str = Query(...)) -> JSONResponse:
 
 @app.get("/api/news")
 async def get_news(
-    query: str = Query("", description="关键词，空则返回最新"),
+    symbol: str = Query("", description="标的代码（必填，cfn 不支持全市场）"),
+    query: str = Query("", description="关键词过滤（在标题里 substring 匹配）"),
     limit: int = Query(15, ge=1, le=50),
 ) -> JSONResponse:
+    """资讯查询。
+    SDK 签名：cfn(codes, content, mode, options)
+      - codes: 单只标的（不支持全市场空串）
+      - content: "companynews" / "industrynews" / "sectornews" / "report"
+      - mode: 1 = StartToEnd 区间模式（需 starttime+endtime）
+      - options: starttime/endtime 14 位时间戳
+
+    注：账号 njnbt0001 当前**无 cfn 权限**（returnMsg:'无权限[10001]'），
+    本接口会返回 INSUFFICIENT_ACCESS，让 DataSource 落到下一层 provider。"""
     fail = _require_sdk()
     if fail:
         return fail
+    if not symbol:
+        env, _ = err("MISSING_SYMBOL", "Choice cfn 必须指定 symbol，不支持全市场新闻")
+        return JSONResponse(env)
+    sym = normalize_symbol(symbol)
     from datetime import datetime, timedelta
 
-    end_d = datetime.utcnow().date()
-    start_d = end_d - timedelta(days=2)
+    end_dt = datetime.utcnow()
+    start_dt = end_dt - timedelta(days=7)
+    options = (
+        f"starttime={start_dt.strftime('%Y%m%d%H%M%S')},"
+        f"endtime={end_dt.strftime('%Y%m%d%H%M%S')}"
+    )
     try:
-        # cfn 资讯函数：取最近 48h，按标题做 substring 过滤
-        result = await sdk.call(
-            "cfn",
-            "",  # 全市场新闻；指定标的可填 600519.SH
-            "TITLE,PUBLISHDATE,SOURCE",
-            f"StartDate={start_d},EndDate={end_d},RowIndex=1",
-        )
+        result = await sdk.call("cfn", sym, "companynews", 1, options)
     except Exception as e:
-        env, _ = err("CHOICE_CALL_FAILED", str(e))
+        msg = str(e)
+        # SDK 在权限不足时会以 RuntimeError 抛 ErrorCode=10001012
+        if "10001012" in msg:
+            env, _ = err("INSUFFICIENT_ACCESS", "Choice 账号未开通资讯查询权限")
+            return JSONResponse(env)
+        env, _ = err("CHOICE_CALL_FAILED", msg)
         return JSONResponse(env)
 
-    # cfn 返回结构：Data[code] = list of (title, date, source) for each item
     items: list[dict] = []
     q = (query or "").strip()
     for code in result.Codes or []:
@@ -286,20 +392,16 @@ async def get_news(
             if not isinstance(row, (list, tuple)):
                 continue
             title = str(row[0] or "")
-            if not title:
+            if not title or (q and q not in title):
                 continue
-            if q and q not in title:
-                continue
-            items.append(
-                {
-                    "title": title,
-                    "datetime": str(row[1]) if len(row) > 1 else None,
-                    "source": str(row[2]) if len(row) > 2 else None,
-                }
-            )
+            items.append({
+                "title": title,
+                "datetime": str(row[1]) if len(row) > 1 else None,
+                "source": str(row[2]) if len(row) > 2 else None,
+            })
             if len(items) >= limit:
                 break
         if len(items) >= limit:
             break
 
-    return JSONResponse(ok({"query": q or None, "count": len(items), "items": items}))
+    return JSONResponse(ok({"symbol": sym, "query": q or None, "count": len(items), "items": items}))

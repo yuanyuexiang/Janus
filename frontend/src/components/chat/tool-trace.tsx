@@ -7,6 +7,16 @@ export type ToolCall = {
   result?: Record<string, unknown>;
 };
 
+// 把 args 压成单行精简形式：{symbol: "600519.SH", days: 30}
+// 单行可读时直接展示；过长则在 details 里 pretty-print
+function formatArgsInline(args: Record<string, unknown>): string {
+  const parts = Object.entries(args).map(([k, v]) => {
+    const val = typeof v === "string" ? `"${v}"` : JSON.stringify(v);
+    return `${k}: ${val}`;
+  });
+  return parts.join(", ");
+}
+
 export function ToolTrace({ calls }: { calls: ToolCall[] }) {
   const [open, setOpen] = useState(false);
   if (calls.length === 0) return null;
@@ -25,23 +35,24 @@ export function ToolTrace({ calls }: { calls: ToolCall[] }) {
         <span className="text-[10px]">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
-        <ul className="mt-2 space-y-1.5 font-mono text-[11px]">
+        <ul className="mt-2 space-y-2 text-[11px]">
           {calls.map((c) => (
             <li
               key={c.id}
               className="rounded-sm bg-parchment-50/80 p-2 dark:bg-walnut-900/40"
             >
-              <div className="text-walnut-500 dark:text-parchment-100">
+              {/* 工具名 + 行内 args */}
+              <div className="font-mono text-walnut-500 dark:text-parchment-100">
                 <span className="text-gilt-700 dark:text-gilt-300">{c.tool}</span>
                 <span className="text-ink-400 dark:text-parchment-200/50">
-                  ({JSON.stringify(c.args)})
+                  ({formatArgsInline(c.args)})
                 </span>
               </div>
+              {/* result：pretty-print 但限高，溢出可滚 */}
               {c.result && (
-                <div className="mt-0.5 truncate text-ink-400 dark:text-parchment-200/50">
-                  → {JSON.stringify(c.result).slice(0, 240)}
-                  {JSON.stringify(c.result).length > 240 ? "…" : ""}
-                </div>
+                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-parchment-100/60 p-1.5 font-mono text-[10.5px] leading-snug text-ink-600 dark:bg-walnut-700/40 dark:text-parchment-200/70">
+                  {JSON.stringify(c.result, null, 2)}
+                </pre>
               )}
             </li>
           ))}

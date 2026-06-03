@@ -194,7 +194,15 @@ export default function ChatPage() {
   const [stageAdvisor, setStageAdvisor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [glassBox, setGlassBox] = useState<GlassBoxData | null>(null);
+  // 窄屏侧栏开关；md 以上侧栏常驻
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // 用户离底超过阈值时显示"↓ 新消息"浮按钮
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+  // 用于失败重试 / 回填输入；与 question 解耦（question 在 submit 时已清空）
+  const [lastQuestion, setLastQuestion] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 用 ref 避免 onScroll 每次都触发 React 重渲（仅 showJumpToBottom 翻转时才 set）
+  const isAtBottomRef = useRef(true);
 
   const refreshList = useCallback(async () => {
     try {
@@ -209,9 +217,42 @@ export default function ChatPage() {
     refreshList();
   }, [refreshList]);
 
+  // ESC 关闭移动端 Drawer（仅在打开时绑定监听）
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    if (!sidebarOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setSidebarOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
+
+  // 流式期间用户可能往上滚看历史 —— 仅当贴底时才自动跟随，否则不打扰
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (!isAtBottomRef.current) return;
+    // 用 auto 而非 smooth：流式增量每个 token 都触发，smooth 会持续卡顿
+    el.scrollTo({ top: el.scrollHeight });
   }, [turns]);
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = distance < 80;
+    const wasAtBottom = isAtBottomRef.current;
+    isAtBottomRef.current = atBottom;
+    if (wasAtBottom !== atBottom) setShowJumpToBottom(!atBottom);
+  }
+
+  function jumpToBottom() {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    isAtBottomRef.current = true;
+    setShowJumpToBottom(false);
+  }
 
   async function loadConversation(id: string) {
     if (running) return;
@@ -252,10 +293,34 @@ export default function ChatPage() {
   async function submit() {
     const q = question.trim();
     if (!q || running) return;
+    setQuestion("");
+    await runChat(q);
+  }
+
+  function retry() {
+    if (!lastQuestion || running) return;
+    runChat(lastQuestion);
+  }
+
+  function dismissError() {
+    setError(null);
+  }
+
+  function refillError() {
+    if (lastQuestion) setQuestion(lastQuestion);
+    setError(null);
+  }
+
+  async function runChat(q: string) {
+    if (running) return;
     setRunning(true);
     setError(null);
+    setLastQuestion(q);
     setStage("starting");
     setStageAdvisor(null);
+    // 新一轮发起 —— 用户语义上"想看新内容"，强制贴底
+    isAtBottomRef.current = true;
+    setShowJumpToBottom(false);
 
     const { order, advisors } = initialAdvisors(mode);
     const initialCouncil: CouncilTurn = {
@@ -267,7 +332,6 @@ export default function ChatPage() {
     };
 
     setTurns((prev) => [...prev, { kind: "user", content: q }, initialCouncil]);
-    setQuestion("");
 
     try {
       for await (const ev of streamChat(q, { conversationId: activeId, mode })) {
@@ -439,13 +503,22 @@ export default function ChatPage() {
   return (
     <main className="flex h-screen flex-col">
       {/* 顶栏：羊皮纸底 + 金箔分隔线 */}
-      <header className="relative border-b border-parchment-300/60 bg-parchment-50/80 px-8 py-4 backdrop-blur dark:border-walnut-300/20 dark:bg-walnut-900/60">
+      <header className="relative border-b border-parchment-300/60 bg-parchment-50/80 px-4 py-4 backdrop-blur md:px-8 dark:border-walnut-300/20 dark:bg-walnut-900/60">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gilt-500/60 to-transparent" />
-        <div className="flex items-center justify-between gap-6">
-          <div className="flex items-baseline gap-4">
+        <div className="flex items-center justify-between gap-4 md:gap-6">
+          <div className="flex items-center gap-3 md:items-baseline md:gap-4">
+            {/* 汉堡按钮：仅窄屏显示，唤出会话列表 Drawer */}
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="打开会话列表"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-parchment-300/70 text-walnut-100 transition-colors hover:border-gilt-500 hover:text-walnut-500 md:hidden dark:border-walnut-300/30 dark:text-parchment-200/70 dark:hover:border-gilt-300 dark:hover:text-gilt-300"
+            >
+              <span className="text-base leading-none">≡</span>
+            </button>
             <Link
               href="/"
-              className="font-display text-[12px] tracking-[0.2em] text-walnut-100 no-underline hover:text-gilt-700 dark:text-parchment-200/70 dark:hover:text-gilt-300"
+              className="hidden font-display text-[12px] tracking-[0.2em] text-walnut-100 no-underline hover:text-gilt-700 md:inline dark:text-parchment-200/70 dark:hover:text-gilt-300"
             >
               ← 返回
             </Link>
@@ -463,7 +536,7 @@ export default function ChatPage() {
             {stageLabel && (
               <span className="flex items-center gap-2 font-display text-[11px] tracking-wider text-walnut-100 dark:text-parchment-200/70">
                 <span className="relative inline-flex h-1.5 w-1.5">
-                  <span className="absolute inset-0 animate-ping rounded-full bg-gilt-500/60" />
+                  <span className="absolute inset-0 rounded-full bg-gilt-500/60 motion-safe:animate-ping" />
                   <span className="absolute inset-0 rounded-full bg-gilt-500" />
                 </span>
                 {stageLabel}
@@ -474,7 +547,8 @@ export default function ChatPage() {
       </header>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div className="w-[260px] shrink-0">
+        {/* 桌面侧栏：md 以上常驻 */}
+        <div className="hidden w-[260px] shrink-0 md:block">
           <ConversationList
             items={convList}
             activeId={activeId}
@@ -490,8 +564,44 @@ export default function ChatPage() {
           />
         </div>
 
-        <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-8 py-10">
+        {/* 移动端 Drawer：sidebarOpen 时遮罩 + 抽屉浮起 */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true">
+            <div
+              className="absolute inset-0 bg-walnut-900/40 backdrop-blur-sm"
+              onClick={() => setSidebarOpen(false)}
+              aria-hidden="true"
+            />
+            <div className="absolute inset-y-0 left-0 w-[280px] max-w-[85vw] bg-parchment-50 shadow-paper-lg dark:bg-walnut-900">
+              <ConversationList
+                items={convList}
+                activeId={activeId}
+                onSelect={(id) => {
+                  loadConversation(id);
+                  setSidebarOpen(false);
+                }}
+                onNew={() => {
+                  startNew();
+                  setSidebarOpen(false);
+                }}
+                onMutated={({ deletedId }) => {
+                  if (deletedId && deletedId === activeId) {
+                    setActiveId(null);
+                    setTurns([]);
+                  }
+                  refreshList();
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-10"
+          >
             {turns.length === 0 ? (
               <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
                 {/* 印章 / 引文徽标 */}
@@ -514,14 +624,17 @@ export default function ChatPage() {
                       ? "韬叔看宏观、岚姐看行业、明哥看价值；执棋最后综合。"
                       : "向明哥提一个估值或基本面问题。"}
                 </p>
-                <div className="flex flex-wrap justify-center gap-2">
+                <div className="flex w-full max-w-xl flex-col gap-2">
                   {EXAMPLES.map((ex, i) => (
                     <button
                       key={i}
                       onClick={() => setQuestion(ex)}
-                      className="rounded-sm border border-parchment-300/70 bg-parchment-100/50 px-4 py-2 font-display text-[12px] text-walnut-100 transition-colors hover:border-gilt-500 hover:bg-gilt-500/10 hover:text-walnut-500 dark:border-walnut-300/30 dark:bg-walnut-700/30 dark:text-parchment-200/80 dark:hover:border-gilt-300 dark:hover:text-gilt-100"
+                      className="group flex w-full items-start gap-3 rounded-sm border border-parchment-300/70 bg-parchment-100/40 px-4 py-3 text-left font-display text-[13px] leading-relaxed text-ink-600 transition-colors hover:border-gilt-500 hover:bg-gilt-500/[0.08] hover:text-walnut-500 dark:border-walnut-300/30 dark:bg-walnut-700/30 dark:text-parchment-200/80 dark:hover:border-gilt-300 dark:hover:text-gilt-100"
                     >
-                      示例 · {ex.slice(0, 22)}{ex.length > 22 ? "…" : ""}
+                      <span className="mt-0.5 shrink-0 font-display text-[10px] uppercase tracking-[0.2em] text-gilt-700 dark:text-gilt-300">
+                        示例
+                      </span>
+                      <span className="flex-1">{ex}</span>
                     </button>
                   ))}
                 </div>
@@ -605,13 +718,56 @@ export default function ChatPage() {
             )}
           </div>
 
-          {error && (
-            <p className="mx-8 mb-3 shrink-0 rounded-sm border border-vermillion-500/30 bg-vermillion-500/[0.08] p-3 text-[13px] text-vermillion-700 dark:border-vermillion-300/30 dark:bg-vermillion-500/[0.15] dark:text-vermillion-300">
-              {error}
-            </p>
+          {/* "↓ 新消息"浮按钮：用户向上脱离底部时显示 */}
+          {showJumpToBottom && (
+            <button
+              type="button"
+              onClick={jumpToBottom}
+              aria-label="跳转到最新消息"
+              className="absolute bottom-24 right-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-walnut-500/30 bg-parchment-50 px-3 py-1.5 font-display text-[12px] text-walnut-500 shadow-paper-lg transition-colors hover:border-gilt-500 hover:bg-gilt-500/10 md:right-8 dark:border-gilt-500/40 dark:bg-walnut-700 dark:text-gilt-100 dark:hover:bg-gilt-500/20"
+            >
+              <span className="text-base leading-none">↓</span>
+              新消息
+            </button>
           )}
 
-          <div className="relative shrink-0 border-t border-parchment-300 bg-parchment-100/60 px-8 py-3 shadow-[0_-8px_24px_-12px_rgba(61,40,23,0.1)] dark:border-walnut-300/30 dark:bg-walnut-900/70">
+          {error && (
+            <div
+              role="alert"
+              className="mx-4 mb-3 flex shrink-0 items-start gap-3 rounded-sm border border-vermillion-500/30 bg-vermillion-500/[0.08] p-3 text-[13px] text-vermillion-700 md:mx-8 dark:border-vermillion-300/30 dark:bg-vermillion-500/[0.15] dark:text-vermillion-300"
+            >
+              <span className="flex-1 leading-relaxed">{error}</span>
+              {lastQuestion && (
+                <>
+                  <button
+                    type="button"
+                    onClick={retry}
+                    disabled={running}
+                    className="shrink-0 rounded-sm border border-vermillion-500/40 px-2 py-1 font-display text-[11px] tracking-wider transition-colors hover:bg-vermillion-500/10 disabled:cursor-not-allowed disabled:opacity-40 dark:border-vermillion-300/40 dark:hover:bg-vermillion-300/10"
+                  >
+                    重试
+                  </button>
+                  <button
+                    type="button"
+                    onClick={refillError}
+                    className="shrink-0 rounded-sm border border-vermillion-500/40 px-2 py-1 font-display text-[11px] tracking-wider transition-colors hover:bg-vermillion-500/10 dark:border-vermillion-300/40 dark:hover:bg-vermillion-300/10"
+                  >
+                    回填
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={dismissError}
+                aria-label="关闭错误提示"
+                className="shrink-0 rounded-sm px-1.5 py-1 font-display text-[12px] opacity-70 transition-opacity hover:opacity-100"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <div className="relative shrink-0 border-t border-parchment-300 bg-parchment-100/60 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(61,40,23,0.1)] md:px-8 dark:border-walnut-300/30 dark:bg-walnut-900/70">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gilt-500/70 to-transparent" />
             <div className="mx-auto max-w-3xl">
               {/* 单行卡：textarea 左 + 圆角发送 icon 按钮右 */}
@@ -643,7 +799,7 @@ export default function ChatPage() {
                 >
                   {running ? (
                     <span className="relative inline-flex h-2 w-2">
-                      <span className="absolute inset-0 animate-ping rounded-full bg-current opacity-60" />
+                      <span className="absolute inset-0 rounded-full bg-current opacity-60 motion-safe:animate-ping" />
                       <span className="absolute inset-0 rounded-full bg-current" />
                     </span>
                   ) : (

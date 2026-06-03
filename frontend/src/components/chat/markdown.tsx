@@ -24,13 +24,13 @@ export function Markdown({ children, className }: MarkdownProps) {
         components={{
           h1: (p) => (
             <h1
-              className="mt-4 mb-2 font-display text-base font-medium text-walnut-500 dark:text-parchment-100"
+              className="mt-5 mb-2.5 font-display text-lg font-medium text-walnut-500 dark:text-parchment-100"
               {...p}
             />
           ),
           h2: (p) => (
             <h2
-              className="mt-4 mb-2 font-display text-base font-medium text-walnut-500 dark:text-parchment-100"
+              className="mt-4 mb-2 font-display text-[15.5px] font-medium text-walnut-500 dark:text-parchment-100"
               {...p}
             />
           ),
@@ -42,7 +42,7 @@ export function Markdown({ children, className }: MarkdownProps) {
           ),
           h4: (p) => (
             <h4
-              className="mt-3 mb-1 font-display text-[13.5px] font-medium text-walnut-500 dark:text-parchment-100"
+              className="mt-3 mb-1 font-display text-[13px] font-medium text-walnut-100 dark:text-parchment-200"
               {...p}
             />
           ),

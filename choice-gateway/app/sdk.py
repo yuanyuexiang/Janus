@@ -3,8 +3,10 @@
 设计目的：
 - 整个 gateway 进程**只有一个** EmQuantAPI 登录态，避免抢设备配额
 - 把同步 SDK 调用包装成异步 helper（FastAPI handler 直接 await）
-- 启动时若已有 userInfo 令牌则自动登录；没有就保持 unauth 状态，等
-  /api/activate 触发短信激活
+- 启动登录优先级：
+    1. CHOICE_USER + CHOICE_PASSWORD 都有 → 账密直登（ForceLogin=1，每次启动重登；不写 userInfo）
+    2. libs/{linux,mac}/x64/userInfo 存在 → 静默登录（首次靠 SMS 激活生成）
+    3. 都没有 → 保持 unauth 状态，等 /api/activate 走 SXDL 短信激活
 """
 
 from __future__ import annotations
@@ -76,29 +78,71 @@ def _login_with_userinfo() -> bool:
         return False
 
 
+def _login_with_credentials(user: str, password: str) -> bool:
+    """账密直登：ForceLogin=1,UserName=...,Password=...
+    注意：此模式不会写 userInfo，每次进程启动都需要重登。
+    适用于：账号已开通量化接口、不想/无法走 SMS 流程的服务化场景。"""
+    _try_import()
+    if not _status.available:
+        return False
+    try:
+        result = _c.start(f"ForceLogin=1,UserName={user},Password={password}")
+        if result.ErrorCode == 0:
+            _status.logged_in = True
+            _status.last_error = None
+            logger.info("Choice SDK 登录成功（账密模式）")
+            return True
+        _status.logged_in = False
+        _status.last_error = f"账密登录失败：code={result.ErrorCode} msg={result.ErrorMsg!r}"
+        logger.warning(_status.last_error)
+        return False
+    except Exception as e:
+        _status.logged_in = False
+        _status.last_error = f"账密登录异常：{type(e).__name__}: {e}"
+        logger.exception("Choice 账密登录抛异常")
+        return False
+
+
 def try_auto_login() -> bool:
-    """启动时调用。如果 SDK 目录里已经有 userInfo，会自动登录；否则保持
-    available=True logged_in=False，等用户走 /api/activate。"""
+    """启动时调用。优先级：账密 > userInfo > 等 SMS 激活。"""
     with _lock:
-        # 容器内的 SDK 目录可能不在 sys.path —— 通过 PYTHONPATH 注入
-        # （Dockerfile 已 ENV PYTHONPATH=/sdk）
         if not _status.available:
             _try_import()
         if not _status.available:
             return False
 
-        # 仅当 SDK 目录下找得到 userInfo 才尝试自动登录
-        # SDK 不直接暴露 userInfo 路径，但实践中它在 libs/{os}/{arch}/ 下
-        sdk_dir = os.environ.get("PYTHONPATH", "").split(":")[0] or "."
-        candidates = [
-            os.path.join(sdk_dir, "libs", "linux", "x64", "userInfo"),
-            os.path.join(sdk_dir, "libs", "mac", "userInfo"),
-        ]
-        if not any(os.path.exists(p) for p in candidates):
-            logger.info("未找到 userInfo 令牌，跳过自动登录；请通过 /api/activate 激活")
-            return False
+        # 1. 账密直登（适合服务化部署，账号已开通量化权限的场景）
+        user = os.environ.get("CHOICE_USER", "").strip()
+        password = os.environ.get("CHOICE_PASSWORD", "").strip()
+        if user and password:
+            return _login_with_credentials(user, password)
 
-        return _login_with_userinfo()
+        # 2. userInfo 静默登录（SMS 激活过一次后会生成）
+        # SDK 不直接暴露 userInfo 路径，实践中放在 libs/{os}/{arch}/ 下
+        sdk_dir = _find_sdk_base()
+        if sdk_dir:
+            candidates = [
+                os.path.join(sdk_dir, "libs", "linux", "x64", "userInfo"),
+                os.path.join(sdk_dir, "libs", "mac", "userInfo"),
+            ]
+            if any(os.path.exists(p) for p in candidates):
+                return _login_with_userinfo()
+
+        logger.info("未配置账密、也无 userInfo 令牌；请通过 /api/activate 走短信激活")
+        return False
+
+
+def _find_sdk_base() -> str | None:
+    """从 sys.path 找 EmQuantAPI.pth 里指向的 SDK base 目录。"""
+    import sys
+    for spath in sys.path:
+        pth = os.path.join(spath, "EmQuantAPI.pth")
+        if os.path.exists(pth):
+            with open(pth, encoding="utf-8") as f:
+                base = f.readline().strip()
+            if base and os.path.isdir(base):
+                return base
+    return None
 
 
 def activate_sms(phone: str) -> tuple[bool, str]:

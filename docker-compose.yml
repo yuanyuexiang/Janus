@@ -42,10 +42,15 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:9001:9001"
-    volumes:
-      # userInfo 令牌写在 SDK 的 libs/linux/x64 目录里 —— 必须持久化，
-      # 不然容器重建后又得短信激活。
-      - choice_session:/sdk/libs/linux/x64
+    # 账密直登模式：账号开通量化权限后，c.start ForceLogin=1 即可，每次启动重登。
+    # 不写 userInfo，因此**不需要持久化卷** —— 这避免了"卷挂在 libs/linux/x64
+    # 上会遮盖 .so 和 ServerList.json.e"的隐性 bug。
+    env_file:
+      - ./choice-gateway/.env
+    # SMS 激活模式备选（账号不支持账密时启用）：取消下面注释，
+    # 用单文件 bind mount 只持久化 userInfo 一个文件，不遮 SDK 二进制。
+    # volumes:
+    #   - ./choice-gateway/data/userInfo:/sdk/libs/linux/x64/userInfo
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:9001/healthz"]
       interval: 30s
@@ -80,4 +85,3 @@ services:
 volumes:
   pg_data:
   redis_data:
-  choice_session:
