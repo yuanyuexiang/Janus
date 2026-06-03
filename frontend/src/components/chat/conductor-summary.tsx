@@ -1,3 +1,4 @@
+import { AdvisorSeal } from "@/components/chat/advisor-seal";
 import { Markdown } from "@/components/chat/markdown";
 import type { CouncilSummary } from "@/lib/types";
 
@@ -131,14 +132,17 @@ export function ConductorSummary({
         }}
       />
 
-      <header className="mb-5 flex items-baseline justify-between gap-3">
-        <div className="flex items-baseline gap-3">
-          <span className="font-display text-2xl font-medium leading-none text-gilt-900 dark:text-gilt-100">
-            执棋
-          </span>
-          <span className="font-display text-[11px] uppercase tracking-[0.3em] text-gilt-700/80 dark:text-gilt-300/70">
-            主持人 · 综合
-          </span>
+      <header className="mb-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <AdvisorSeal char="执" color="var(--color-gilt-500)" size="lg" conductor />
+          <div className="flex items-baseline gap-3">
+            <span className="font-display text-2xl font-medium leading-none text-gilt-900 dark:text-gilt-100">
+              执棋
+            </span>
+            <span className="font-display text-[11px] uppercase tracking-[0.3em] text-gilt-700/80 dark:text-gilt-300/70">
+              主持人 · 综合
+            </span>
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {summary && (

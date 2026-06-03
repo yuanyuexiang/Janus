@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { AdvisorSeal } from "@/components/chat/advisor-seal";
 import type { ToolCall } from "@/components/chat/tool-trace";
 import type { AdvisorOpinion, CouncilSummary } from "@/lib/types";
 
@@ -277,16 +278,24 @@ export function GlassBoxDrawer({ data, onClose }: GlassBoxDrawerProps) {
 
         <header className="border-b border-parchment-300/60 px-4 py-4 md:px-6 md:py-5 dark:border-walnut-300/20">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-display text-[10px] uppercase tracking-[0.3em] text-gilt-700 dark:text-gilt-300">
-                {subtitle}
-              </p>
-              <h2
-                className="mt-1 font-display text-2xl"
-                style={{ color: titleColor }}
-              >
-                {title}
-              </h2>
+            <div className="flex items-center gap-3">
+              <AdvisorSeal
+                char={title.charAt(0)}
+                color={data.kind === "advisor" ? data.color : "var(--color-gilt-500)"}
+                size="md"
+                conductor={data.kind === "conductor"}
+              />
+              <div>
+                <p className="font-display text-[10px] uppercase tracking-[0.3em] text-gilt-700 dark:text-gilt-300">
+                  {subtitle}
+                </p>
+                <h2
+                  className="mt-1 font-display text-2xl"
+                  style={{ color: titleColor }}
+                >
+                  {title}
+                </h2>
+              </div>
             </div>
             <button
               type="button"

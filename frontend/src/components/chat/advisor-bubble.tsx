@@ -1,3 +1,4 @@
+import { AdvisorSeal } from "@/components/chat/advisor-seal";
 import { Markdown } from "@/components/chat/markdown";
 import type { AdvisorOpinion } from "@/lib/types";
 
@@ -85,23 +86,26 @@ export function AdvisorBubble({
     <article
       className="relative rounded-sm border border-parchment-300/70 bg-parchment-100/40 px-6 py-5 shadow-paper transition-shadow hover:shadow-paper-lg dark:border-walnut-300/30 dark:bg-walnut-700/40"
     >
-      {/* 印章 / 顾问标识：左上角竖排，半透明衬底 */}
+      {/* 印章头像 + 顾问标识 */}
       <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="flex items-baseline gap-3">
-          <span
-            className="font-display text-xl font-medium leading-none"
-            style={{ color }}
-          >
-            {display}
-          </span>
-          {/* role 是中文（"宏观"/"行业"），不上 uppercase；
-              用细小字距和淡化的同色让它当主名的副线 */}
-          <span
-            className="font-display text-[12px] tracking-wide opacity-70"
-            style={{ color }}
-          >
-            {role}
-          </span>
+        <div className="flex items-center gap-3">
+          <AdvisorSeal char={display.charAt(0)} color={color} size="md" />
+          <div className="flex items-baseline gap-2.5">
+            <span
+              className="font-display text-xl font-medium leading-none"
+              style={{ color }}
+            >
+              {display}
+            </span>
+            {/* role 是中文（"宏观"/"行业"），不上 uppercase；
+                用细小字距和淡化的同色让它当主名的副线 */}
+            <span
+              className="font-display text-[12px] tracking-wide opacity-70"
+              style={{ color }}
+            >
+              {role}
+            </span>
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {opinion && (

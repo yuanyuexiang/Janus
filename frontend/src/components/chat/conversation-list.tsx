@@ -55,7 +55,11 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.title ?? "");
   const [busy, setBusy] = useState(false);
+  // 行内二次确认：首次点"删除"进入待确认态，再点"确认删除"才真删；
+  // 不用 window.confirm 弹窗。CONFIRM_RESET_MS 内不点会自动复原，防误触。
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (editing) {
@@ -67,6 +71,13 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
   useEffect(() => {
     setDraft(item.title ?? "");
   }, [item.title]);
+
+  // 卸载时清掉待确认定时器
+  useEffect(() => {
+    return () => {
+      if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    };
+  }, []);
 
   async function commitRename() {
     const trimmed = draft.trim();
@@ -88,17 +99,31 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
     }
   }
 
-  async function handleDelete(e: React.MouseEvent) {
+  const CONFIRM_RESET_MS = 3000;
+
+  function armDelete(e: React.MouseEvent) {
     e.stopPropagation();
-    const ok = window.confirm(`删除会话「${item.title ?? "(无标题)"}」？此操作不可恢复。`);
-    if (!ok) return;
+    setConfirmingDelete(true);
+    if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    confirmTimer.current = setTimeout(() => setConfirmingDelete(false), CONFIRM_RESET_MS);
+  }
+
+  function cancelDelete(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    setConfirmingDelete(false);
+  }
+
+  async function confirmDelete(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    setConfirmingDelete(false);
     setBusy(true);
     try {
       await deleteConversation(item.id);
       onAfterMutate({ deletedId: item.id });
     } catch (err) {
       console.error("delete failed", err);
-      alert("删除失败");
     } finally {
       setBusy(false);
     }
@@ -169,35 +194,65 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
             {modeLabel}
           </span>
         )}
-        {/* 操作按钮：仅 hover 显示，覆盖在 mode 标签之上 */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-3 font-display text-[10px] tracking-wider text-ink-400 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 dark:text-parchment-200/70">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditing(true);
-            }}
-            className="hover:text-gilt-700 dark:hover:text-gilt-300"
-            title="改名"
-          >
-            改名
-          </button>
-          <button
-            type="button"
-            onClick={handleExport}
-            className="hover:text-gilt-700 dark:hover:text-gilt-300"
-            title="导出 Markdown"
-          >
-            导出
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="hover:text-vermillion-500 dark:hover:text-vermillion-300"
-            title="删除"
-          >
-            删除
-          </button>
+        {/* 操作按钮：仅 hover 显示，覆盖在 mode 标签之上；
+            待确认删除时强制常驻可见 */}
+        <div
+          className={`absolute inset-y-0 right-0 flex items-center gap-3 font-display text-[10px] tracking-wider text-ink-400 transition-opacity dark:text-parchment-200/70 ${
+            confirmingDelete
+              ? "pointer-events-auto opacity-100"
+              : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+          }`}
+        >
+          {confirmingDelete ? (
+            <>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="font-medium text-vermillion-500 hover:text-vermillion-700 dark:text-vermillion-300 dark:hover:text-vermillion-300"
+                title="确认删除（不可恢复）"
+              >
+                确认删除
+              </button>
+              <button
+                type="button"
+                onClick={cancelDelete}
+                className="hover:text-walnut-500 dark:hover:text-parchment-100"
+                title="取消"
+              >
+                取消
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditing(true);
+                }}
+                className="hover:text-gilt-700 dark:hover:text-gilt-300"
+                title="改名"
+              >
+                改名
+              </button>
+              <button
+                type="button"
+                onClick={handleExport}
+                className="hover:text-gilt-700 dark:hover:text-gilt-300"
+                title="导出 Markdown"
+              >
+                导出
+              </button>
+              <button
+                type="button"
+                onClick={armDelete}
+                className="hover:text-vermillion-500 dark:hover:text-vermillion-300"
+                title="删除"
+              >
+                删除
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
