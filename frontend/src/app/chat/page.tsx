@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AdvisorBubble } from "@/components/chat/advisor-bubble";
 import { ConductorSummary } from "@/components/chat/conductor-summary";
 import { ConversationList } from "@/components/chat/conversation-list";
+import { NavRail, type RailView } from "@/components/chat/nav-rail";
+import { StatusView } from "@/components/chat/status-view";
 import {
   GlassBoxDrawer,
   type GlassBoxData,
@@ -55,7 +56,7 @@ function ModeToggle({
             title={opt.hint}
             className={`px-3 py-1.5 transition-colors disabled:opacity-50 ${
               on
-                ? "bg-walnut-500 text-parchment-100 dark:bg-gilt-500 dark:text-walnut-900"
+                ? "bg-walnut-500 text-parchment-100 dark:bg-gilt-500 dark:text-walnut-900 nasdaq:bg-gilt-500 nasdaq:text-parchment-50"
                 : "text-walnut-100 hover:text-walnut-500 dark:text-parchment-200/70 dark:hover:text-gilt-300"
             }`}
           >
@@ -227,6 +228,8 @@ export default function ChatPage() {
   const [stageAdvisor, setStageAdvisor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [glassBox, setGlassBox] = useState<GlassBoxData | null>(null);
+  // 左侧导航栏当前页：对话 / 服务状态
+  const [view, setView] = useState<RailView>("chat");
   // 窄屏侧栏开关；md 以上侧栏常驻
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // 用户离底超过阈值时显示"↓ 新消息"浮按钮
@@ -512,7 +515,14 @@ export default function ChatPage() {
   const placeholder = activeId ? "继续追问…  ⌘+↵ 发送" : "向圆桌提个问题…  ⌘+↵ 发送";
 
   return (
-    <main className="flex h-screen flex-col">
+    <main className="flex h-screen">
+      {/* 最左导航栏：对话 / 服务状态 */}
+      <NavRail active={view} onChange={setView} />
+
+      {view === "status" ? (
+        <StatusView />
+      ) : (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* 顶栏：羊皮纸底 + 金箔分隔线 */}
       <header className="relative border-b border-parchment-300/60 bg-parchment-50/80 px-4 py-4 backdrop-blur md:px-8 dark:border-walnut-300/20 dark:bg-walnut-900/60">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gilt-500/60 to-transparent" />
@@ -527,12 +537,6 @@ export default function ChatPage() {
             >
               <span className="text-base leading-none">≡</span>
             </button>
-            <Link
-              href="/"
-              className="hidden font-display text-[12px] tracking-[0.2em] text-walnut-100 no-underline hover:text-gilt-700 md:inline dark:text-parchment-200/70 dark:hover:text-gilt-300"
-            >
-              ← 返回
-            </Link>
             <div className="flex items-baseline gap-3">
               <h1 className="font-display text-xl font-medium text-walnut-500 dark:text-parchment-100">
                 圆桌投研
@@ -805,7 +809,7 @@ export default function ChatPage() {
                   className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                     running || !question.trim()
                       ? "border-walnut-50/30 bg-transparent text-walnut-100 dark:border-walnut-300/30 dark:text-parchment-200/60"
-                      : "border-walnut-500 bg-walnut-500 text-parchment-100 hover:border-walnut-700 hover:bg-walnut-700 dark:border-gilt-500 dark:bg-gilt-500 dark:text-walnut-900 dark:hover:bg-gilt-300"
+                      : "border-walnut-500 bg-walnut-500 text-parchment-100 hover:border-walnut-700 hover:bg-walnut-700 dark:border-gilt-500 dark:bg-gilt-500 dark:text-walnut-900 dark:hover:bg-gilt-300 nasdaq:border-gilt-500 nasdaq:bg-gilt-500 nasdaq:text-parchment-50 nasdaq:hover:bg-gilt-300"
                   }`}
                 >
                   {running ? (
@@ -822,6 +826,8 @@ export default function ChatPage() {
           </div>
         </section>
       </div>
+      </div>
+      )}
 
       <GlassBoxDrawer data={glassBox} onClose={() => setGlassBox(null)} />
     </main>

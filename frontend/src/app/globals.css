@@ -1,50 +1,152 @@
 @import "tailwindcss";
 
-/* -------- Atlas Council 设计 token -------- */
-/* 议事厅美学：胡桃木 + 羊皮纸 + 金箔 */
+/* dark 变体改为属性驱动（[data-theme="dark"]），不再跟随系统 —— 这样
+   light / dark / nasdaq 三套主题都由 <html data-theme> 显式控制。 */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+/* nasdaq 变体：给少数"主操作实底"元素在终端主题下换成蓝青实底
+   （walnut 实底在语义翻转下会变亮块，单独修正这几处） */
+@custom-variant nasdaq (&:where([data-theme="nasdaq"], [data-theme="nasdaq"] *));
 
+/* ============================================================
+   原始调色板（raw palette）—— 主题切换只覆盖这一层。
+   组件用的语义 token（--color-*）通过 @theme inline 指向这些变量，
+   所以换主题时全站自动变色，组件无需改动。
+   ============================================================ */
+
+/* 默认 / 古典（羊皮纸 · 胡桃木 · 金箔） */
+:root,
+[data-theme="light"],
+[data-theme="dark"] {
+  --p-parchment-50:  #FBF7EE;
+  --p-parchment-100: #F5EBD9;
+  --p-parchment-200: #ECDFC4;
+  --p-parchment-300: #D9C8A4;
+
+  --p-walnut-50:  #8A6F58;
+  --p-walnut-100: #6E5440;
+  --p-walnut-300: #5C4634;
+  --p-walnut-500: #3D2817;
+  --p-walnut-700: #2A1B0F;
+  --p-walnut-900: #1A0F08;
+
+  --p-gilt-100: #E7D49E;
+  --p-gilt-300: #D8BE7C;
+  --p-gilt-500: #C9A961;
+  --p-gilt-700: #A28245;
+  --p-gilt-900: #7A6131;
+
+  --p-ink-400: #6B5A4A;
+  --p-ink-600: #4A3C30;
+  --p-ink-900: #1F1612;
+
+  --p-vermillion-300: #C76060;
+  --p-vermillion-500: #9B2C2C;
+  --p-vermillion-700: #6B1F1F;
+
+  --p-sage-300: #9AB18A;
+  --p-sage-500: #708A60;
+  --p-sage-700: #4F6645;
+
+  --p-slate-card: #2B2419;
+
+  --p-font-display: var(--font-serif-sc), "Source Han Serif SC", "Songti SC", "STSong", serif;
+
+  --p-shadow-1: 0 1px 2px rgba(61, 40, 23, 0.04), 0 2px 6px rgba(61, 40, 23, 0.06);
+  --p-shadow-2: 0 4px 12px rgba(61, 40, 23, 0.08), 0 12px 28px rgba(61, 40, 23, 0.10);
+}
+
+/* 纳斯达克终端风（近黑底 · 电光蓝青 · 涨绿跌红 · 无衬线）
+   语义角色保持一致：parchment=表面、walnut/ink=文字、gilt=强调，
+   只是数值从「暖·浅」翻成「冷·深」。 */
+[data-theme="nasdaq"] {
+  /* 表面：从亮到暗（页面底 → 卡片 → 边框） */
+  --p-parchment-50:  #0A0E16;
+  --p-parchment-100: #111824;
+  --p-parchment-200: #18212F;
+  --p-parchment-300: #2A3647;
+
+  /* 文字（原胡桃木）：从暗翻成亮，数字越大越亮 */
+  --p-walnut-50:  #6B7A90;
+  --p-walnut-100: #8B9AB0;
+  --p-walnut-300: #A9B6C9;
+  --p-walnut-500: #E4ECF6;
+  --p-walnut-700: #F1F5FA;
+  --p-walnut-900: #FFFFFF;
+
+  /* 强调（原金箔）：电光蓝青 */
+  --p-gilt-100: #BDEEFF;
+  --p-gilt-300: #6FD9F2;
+  --p-gilt-500: #18C0E8;
+  --p-gilt-700: #2FA8CC;
+  --p-gilt-900: #1C7E9C;
+
+  /* 正文 */
+  --p-ink-400: #7C8AA0;
+  --p-ink-600: #AAB6C8;
+  --p-ink-900: #E4ECF6;
+
+  /* 跌（红） */
+  --p-vermillion-300: #FF6B7A;
+  --p-vermillion-500: #FF4757;
+  --p-vermillion-700: #C0392B;
+
+  /* 涨（绿） */
+  --p-sage-300: #5DE3A0;
+  --p-sage-500: #16C784;
+  --p-sage-700: #0E9E68;
+
+  --p-slate-card: #0F1420;
+
+  /* 去衬线：终端感用无衬线 */
+  --p-font-display: var(--font-sans-inter), "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
+
+  /* 冷调阴影 */
+  --p-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.5);
+  --p-shadow-2: 0 4px 16px rgba(0, 0, 0, 0.5), 0 14px 36px rgba(0, 0, 0, 0.6);
+}
+
+/* -------- Atlas Council 设计 token（语义层，指向 raw palette）-------- */
 @theme inline {
-  /* 调色板 */
-  --color-parchment-50:  #FBF7EE;   /* 最亮羊皮纸 (页面底色) */
-  --color-parchment-100: #F5EBD9;   /* 标准羊皮纸 (PRD spec) */
-  --color-parchment-200: #ECDFC4;   /* 卡片底色 / 略深 */
-  --color-parchment-300: #D9C8A4;   /* 分隔线 / 弱边框 */
+  --color-parchment-50:  var(--p-parchment-50);
+  --color-parchment-100: var(--p-parchment-100);
+  --color-parchment-200: var(--p-parchment-200);
+  --color-parchment-300: var(--p-parchment-300);
 
-  --color-walnut-50:  #8A6F58;
-  --color-walnut-100: #6E5440;
-  --color-walnut-300: #5C4634;
-  --color-walnut-500: #3D2817;      /* PRD 主色 */
-  --color-walnut-700: #2A1B0F;
-  --color-walnut-900: #1A0F08;
+  --color-walnut-50:  var(--p-walnut-50);
+  --color-walnut-100: var(--p-walnut-100);
+  --color-walnut-300: var(--p-walnut-300);
+  --color-walnut-500: var(--p-walnut-500);
+  --color-walnut-700: var(--p-walnut-700);
+  --color-walnut-900: var(--p-walnut-900);
 
-  --color-gilt-100: #E7D49E;
-  --color-gilt-300: #D8BE7C;
-  --color-gilt-500: #C9A961;        /* PRD 强调色 (金箔) */
-  --color-gilt-700: #A28245;
-  --color-gilt-900: #7A6131;
+  --color-gilt-100: var(--p-gilt-100);
+  --color-gilt-300: var(--p-gilt-300);
+  --color-gilt-500: var(--p-gilt-500);
+  --color-gilt-700: var(--p-gilt-700);
+  --color-gilt-900: var(--p-gilt-900);
 
-  --color-ink-400: #6B5A4A;
-  --color-ink-600: #4A3C30;
-  --color-ink-900: #1F1612;          /* 正文文字 (深墨) */
+  --color-ink-400: var(--p-ink-400);
+  --color-ink-600: var(--p-ink-600);
+  --color-ink-900: var(--p-ink-900);
 
-  --color-vermillion-300: #C76060;
-  --color-vermillion-500: #9B2C2C;   /* PRD 警示 (暗红) */
-  --color-vermillion-700: #6B1F1F;
+  --color-vermillion-300: var(--p-vermillion-300);
+  --color-vermillion-500: var(--p-vermillion-500);
+  --color-vermillion-700: var(--p-vermillion-700);
 
-  --color-sage-300: #9AB18A;
-  --color-sage-500: #708A60;          /* 正向 (墨青) */
-  --color-sage-700: #4F6645;
+  --color-sage-300: var(--p-sage-300);
+  --color-sage-500: var(--p-sage-500);
+  --color-sage-700: var(--p-sage-700);
 
-  --color-slate-card: #2B2419;        /* 暗色卡 (深色模式) */
+  --color-slate-card: var(--p-slate-card);
 
-  /* 字体族 (next/font 会注入 --font-sans-inter 和 --font-serif-sc) */
-  --font-display: var(--font-serif-sc), "Source Han Serif SC", "Songti SC", "STSong", serif;
+  /* 字体族 */
+  --font-display: var(--p-font-display);
   --font-sans: var(--font-sans-inter), "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  /* 阴影：柔和 + 暖色调 */
-  --shadow-paper: 0 1px 2px rgba(61, 40, 23, 0.04), 0 2px 6px rgba(61, 40, 23, 0.06);
-  --shadow-paper-lg: 0 4px 12px rgba(61, 40, 23, 0.08), 0 12px 28px rgba(61, 40, 23, 0.10);
+  /* 阴影 */
+  --shadow-paper: var(--p-shadow-1);
+  --shadow-paper-lg: var(--p-shadow-2);
 }
 
 /* -------- 基础样式 -------- */
@@ -67,7 +169,7 @@ body {
   background-attachment: fixed;
 }
 
-/* 标题用宋体 */
+/* 标题用宋体（nasdaq 主题下 --font-display 已切成无衬线） */
 h1, h2, h3, h4, .font-display {
   font-family: var(--font-display);
   letter-spacing: -0.01em;
@@ -115,26 +217,37 @@ input, textarea, select {
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-walnut-50); }
 
-/* 深色模式（夜读议事厅） */
-@media (prefers-color-scheme: dark) {
-  html, body {
-    background-color: var(--color-walnut-900);
-    color: var(--color-parchment-100);
-  }
-  body {
-    background-image:
-      radial-gradient(at 0% 0%, rgba(201, 169, 97, 0.06), transparent 60%),
-      radial-gradient(at 100% 100%, rgba(245, 235, 217, 0.03), transparent 50%);
-  }
-  /* 同样进 base layer，保证工具类可覆盖 */
-  @layer base {
-    a { color: var(--color-gilt-300); text-decoration-color: var(--color-gilt-700); }
-    a:hover { color: var(--color-gilt-100); }
-  }
-  ::selection {
-    background-color: var(--color-gilt-700);
-    color: var(--color-parchment-100);
-  }
-  ::-webkit-scrollbar-thumb { background: var(--color-walnut-300); }
-  ::-webkit-scrollbar-thumb:hover { background: var(--color-walnut-100); }
+/* ============================================================
+   深色主题（夜读议事厅）—— 属性驱动，配合各组件的 dark: 工具类。
+   raw palette 仍沿用浅色值（dark: 变体会挑暗侧 token），
+   只需把页面底色、链接、选区、滚动条改成暗调。
+   ============================================================ */
+[data-theme="dark"] {
+  background-color: var(--color-walnut-900);
+}
+[data-theme="dark"] body {
+  background-color: var(--color-walnut-900);
+  color: var(--color-parchment-100);
+  background-image:
+    radial-gradient(at 0% 0%, rgba(201, 169, 97, 0.06), transparent 60%),
+    radial-gradient(at 100% 100%, rgba(245, 235, 217, 0.03), transparent 50%);
+}
+@layer base {
+  [data-theme="dark"] a { color: var(--color-gilt-300); text-decoration-color: var(--color-gilt-700); }
+  [data-theme="dark"] a:hover { color: var(--color-gilt-100); }
+}
+[data-theme="dark"] ::selection {
+  background-color: var(--color-gilt-700);
+  color: var(--color-parchment-100);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--color-walnut-300); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: var(--color-walnut-100); }
+
+/* ============================================================
+   纳斯达克主题 —— raw palette 已翻成冷暗调，这里只调页面底纹。
+   ============================================================ */
+[data-theme="nasdaq"] body {
+  background-image:
+    radial-gradient(at 12% 0%, rgba(24, 192, 232, 0.07), transparent 55%),
+    radial-gradient(at 100% 100%, rgba(22, 199, 132, 0.04), transparent 50%);
 }

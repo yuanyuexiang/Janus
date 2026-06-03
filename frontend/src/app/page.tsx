@@ -57,7 +57,7 @@ export default function Home() {
             </p>
             <Link
               href="/chat"
-              className="group inline-flex items-center gap-2 rounded-sm border border-walnut-500 bg-walnut-500 px-5 py-2.5 font-display text-[13px] tracking-wider text-parchment-100 no-underline shadow-paper transition-all hover:border-walnut-700 hover:bg-walnut-700 hover:shadow-paper-lg dark:border-gilt-500 dark:bg-gilt-500 dark:text-walnut-900 dark:hover:bg-gilt-300"
+              className="group inline-flex items-center gap-2 rounded-sm border border-walnut-500 bg-walnut-500 px-5 py-2.5 font-display text-[13px] tracking-wider text-parchment-100 no-underline shadow-paper transition-all hover:border-walnut-700 hover:bg-walnut-700 hover:shadow-paper-lg dark:border-gilt-500 dark:bg-gilt-500 dark:text-walnut-900 dark:hover:bg-gilt-300 nasdaq:border-gilt-500 nasdaq:bg-gilt-500 nasdaq:text-parchment-50 nasdaq:hover:bg-gilt-300"
             >
               进入对话
               <span className="text-base leading-none transition-transform group-hover:translate-x-0.5">
