@@ -31,7 +31,7 @@ export default function Home() {
         <blockquote className="mb-16 max-w-xl border-l-2 border-gilt-500/60 pl-5 font-display text-[18px] leading-relaxed not-italic text-ink-900 dark:text-parchment-100">
           一桌专家智囊团，陪你看清每一笔投资。
           <span className="mt-3 block font-display text-[13px] italic text-ink-600 dark:text-parchment-200/70">
-            把"七位风格各异的专家围坐讨论"变成你随时可用的私人智库。
+            把「七位风格各异的专家围坐讨论」变成你随时可用的私人智库。
           </span>
         </blockquote>
 
@@ -57,9 +57,12 @@ export default function Home() {
             </p>
             <Link
               href="/chat"
-              className="inline-flex items-center gap-2 rounded-sm border border-walnut-500 bg-walnut-500 px-5 py-2.5 font-display text-[13px] tracking-wider text-parchment-100 no-underline transition-colors hover:border-walnut-700 hover:bg-walnut-700 dark:border-gilt-500 dark:bg-gilt-500 dark:text-walnut-900 dark:hover:bg-gilt-300"
+              className="group inline-flex items-center gap-2 rounded-sm border border-walnut-500 bg-walnut-500 px-5 py-2.5 font-display text-[13px] tracking-wider text-parchment-100 no-underline shadow-paper transition-all hover:border-walnut-700 hover:bg-walnut-700 hover:shadow-paper-lg dark:border-gilt-500 dark:bg-gilt-500 dark:text-walnut-900 dark:hover:bg-gilt-300"
             >
-              进入对话 <span className="text-base leading-none">→</span>
+              进入对话
+              <span className="text-base leading-none transition-transform group-hover:translate-x-0.5">
+                →
+              </span>
             </Link>
           </section>
 

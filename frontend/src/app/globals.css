@@ -79,16 +79,20 @@ blockquote {
   font-style: italic;
 }
 
-/* 链接：金箔下划线 */
-a {
-  color: var(--color-walnut-500);
-  text-decoration: underline;
-  text-decoration-color: var(--color-gilt-500);
-  text-underline-offset: 3px;
-  transition: color 0.15s;
-}
-a:hover {
-  color: var(--color-gilt-700);
+/* 链接：金箔下划线
+   放进 @layer base —— 否则无 layer 的元素选择器会盖过 Tailwind 工具类
+   （utilities 在 layer 内），导致 Link 当按钮用时 text- 与 no-underline 失效。 */
+@layer base {
+  a {
+    color: var(--color-walnut-500);
+    text-decoration: underline;
+    text-decoration-color: var(--color-gilt-500);
+    text-underline-offset: 3px;
+    transition: color 0.15s;
+  }
+  a:hover {
+    color: var(--color-gilt-700);
+  }
 }
 
 /* 表单元素：羊皮纸底 + 胡桃木边 */
@@ -122,8 +126,11 @@ input, textarea, select {
       radial-gradient(at 0% 0%, rgba(201, 169, 97, 0.06), transparent 60%),
       radial-gradient(at 100% 100%, rgba(245, 235, 217, 0.03), transparent 50%);
   }
-  a { color: var(--color-gilt-300); text-decoration-color: var(--color-gilt-700); }
-  a:hover { color: var(--color-gilt-100); }
+  /* 同样进 base layer，保证工具类可覆盖 */
+  @layer base {
+    a { color: var(--color-gilt-300); text-decoration-color: var(--color-gilt-700); }
+    a:hover { color: var(--color-gilt-100); }
+  }
   ::selection {
     background-color: var(--color-gilt-700);
     color: var(--color-parchment-100);

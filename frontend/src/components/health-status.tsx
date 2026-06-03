@@ -4,7 +4,27 @@ import { useEffect, useState } from "react";
 
 import { apiGet } from "@/lib/api";
 
-type Health = { status: string; db: boolean };
+type ChoiceStatus = { configured: boolean; reachable: boolean; logged_in: boolean };
+type Health = {
+  status: string;
+  db: boolean;
+  data_source?: { chain: string[]; choice: ChoiceStatus };
+};
+
+// 数据源链里 provider 名 → 中文显示
+const PROVIDER_LABEL: Record<string, string> = {
+  choice: "东方财富 Choice",
+  tushare: "Tushare",
+  mock: "内置样例",
+};
+
+// Choice 子状态 → 文案 + 是否正常
+function choiceNote(c: ChoiceStatus): { note: string; ok: boolean } {
+  if (!c.configured) return { note: "未启用", ok: false };
+  if (!c.reachable) return { note: "网关离线", ok: false };
+  if (!c.logged_in) return { note: "待激活", ok: false };
+  return { note: "已就绪", ok: true };
+}
 
 export function HealthStatus() {
   const [data, setData] = useState<Health | null>(null);
@@ -32,10 +52,24 @@ export function HealthStatus() {
     );
   }
 
+  const ds = data.data_source;
+  const choice = ds?.choice;
+
   return (
     <ul className="space-y-2 text-[13px]">
       <Row label="API" ok={data.status === "ok"} note={data.status} />
       <Row label="Postgres" ok={data.db} note={data.db ? "connected" : "down"} />
+      {choice && (
+        <Row label="Choice 数据" {...choiceNote(choice)} />
+      )}
+      {ds && ds.chain.length > 0 && (
+        <li className="flex items-center justify-between gap-3 pt-1">
+          <span className="font-display text-walnut-50 dark:text-parchment-200/60">数据链路</span>
+          <span className="font-mono text-[11px] text-ink-600 dark:text-parchment-200/60">
+            {ds.chain.map((p) => PROVIDER_LABEL[p] ?? p).join(" → ")}
+          </span>
+        </li>
+      )}
     </ul>
   );
 }

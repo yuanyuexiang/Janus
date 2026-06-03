@@ -34,6 +34,39 @@ const MODE_OPTIONS: { value: Mode; label: string; hint: string }[] = [
   { value: "solo", label: "单聊 · 明哥", hint: "只问价值派" },
 ];
 
+function ModeToggle({
+  mode,
+  setMode,
+  running,
+}: {
+  mode: Mode;
+  setMode: (m: Mode) => void;
+  running: boolean;
+}) {
+  return (
+    <div className="inline-flex items-center divide-x divide-parchment-300/70 rounded-sm border border-parchment-300/70 bg-parchment-50/60 font-display text-[11px] tracking-wider dark:divide-walnut-300/30 dark:border-walnut-300/30 dark:bg-walnut-700/40">
+      {MODE_OPTIONS.map((opt) => {
+        const on = mode === opt.value;
+        return (
+          <button
+            key={opt.value}
+            onClick={() => !running && setMode(opt.value)}
+            disabled={running}
+            title={opt.hint}
+            className={`px-3 py-1.5 transition-colors disabled:opacity-50 ${
+              on
+                ? "bg-walnut-500 text-parchment-100 dark:bg-gilt-500 dark:text-walnut-900"
+                : "text-walnut-100 hover:text-walnut-500 dark:text-parchment-200/70 dark:hover:text-gilt-300"
+            }`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 type AdvisorState = {
   display: string;
   role: string;
@@ -214,6 +247,9 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
+    // 挂载时拉一次会话列表。setConvList 在 await 之后触发，非同步 setState，
+    // 这条规则无法追踪 async 故误报。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshList();
   }, [refreshList]);
 
@@ -474,39 +510,6 @@ export default function ChatPage() {
 
   const stageLabel = formatStage(stage, stageAdvisor);
   const placeholder = activeId ? "继续追问…  ⌘+↵ 发送" : "向圆桌提个问题…  ⌘+↵ 发送";
-
-  function ModeToggle({
-    mode,
-    setMode,
-    running,
-  }: {
-    mode: Mode;
-    setMode: (m: Mode) => void;
-    running: boolean;
-  }) {
-    return (
-      <div className="inline-flex items-center divide-x divide-parchment-300/70 rounded-sm border border-parchment-300/70 bg-parchment-50/60 font-display text-[11px] tracking-wider dark:divide-walnut-300/30 dark:border-walnut-300/30 dark:bg-walnut-700/40">
-        {MODE_OPTIONS.map((opt) => {
-          const on = mode === opt.value;
-          return (
-            <button
-              key={opt.value}
-              onClick={() => !running && setMode(opt.value)}
-              disabled={running}
-              title={opt.hint}
-              className={`px-3 py-1.5 transition-colors disabled:opacity-50 ${
-                on
-                  ? "bg-walnut-500 text-parchment-100 dark:bg-gilt-500 dark:text-walnut-900"
-                  : "text-walnut-100 hover:text-walnut-500 dark:text-parchment-200/70 dark:hover:text-gilt-300"
-              }`}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
 
   return (
     <main className="flex h-screen flex-col">

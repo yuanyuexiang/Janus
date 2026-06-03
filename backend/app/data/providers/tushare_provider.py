@@ -308,6 +308,108 @@ class TushareProvider(DataProvider):
         }
 
 
+    # ---------- 行业 ----------
+
+    # 行业名 → 申万 2021 指数代码。
+    # Choice 账号没有申万 SI 权限，但 Tushare 的 sw_daily 端点可访问，正好补位。
+    # L1（一级）代码是标准固定值；部分用 L2（二级）取更精准的细分行业。
+    # 即便某个 L2 代码有偏差，sw_daily 会返回 None → 链上自动落到 MockProvider，不会出错数据。
+    _SW_CODES: dict[str, str] = {
+        "白酒": "801124.SI",        # 食品饮料 / 白酒Ⅱ
+        "食品饮料": "801120.SI",     # L1
+        "锂电池": "801737.SI",       # 电力设备 / 电池
+        "电池": "801737.SI",
+        "新能源汽车": "801880.SI",    # 汽车 L1（最接近）
+        "汽车": "801880.SI",
+        "半导体": "801081.SI",       # 电子 / 半导体
+        "电子": "801080.SI",         # L1
+        "银行": "801780.SI",         # L1
+        "证券": "801193.SI",         # 非银金融 / 证券Ⅱ
+        "保险": "801194.SI",         # 非银金融 / 保险Ⅱ
+        "非银金融": "801790.SI",      # L1
+        "创新药": "801150.SI",       # 医药生物 L1（最接近）
+        "医药": "801150.SI",
+        "公用事业": "801160.SI",      # L1
+        "电力设备": "801730.SI",      # L1
+        "光伏": "801735.SI",         # 电力设备 / 光伏设备
+        "煤炭": "801950.SI",         # L1
+        "石油石化": "801960.SI",      # L1
+        "国防军工": "801740.SI",      # L1
+        "计算机": "801750.SI",       # L1
+        "通信": "801770.SI",         # L1
+        "传媒": "801760.SI",         # L1
+        "家电": "801110.SI",         # 家用电器 L1
+        "有色金属": "801050.SI",      # L1
+    }
+
+    _SW_ALIASES: dict[str, str] = {
+        "酒": "白酒",
+        "白酒板块": "白酒",
+        "高端白酒": "白酒",
+        "动力电池": "锂电池",
+        "新能源车": "新能源汽车",
+        "电动车": "新能源汽车",
+        "新能源": "新能源汽车",
+        "金融": "银行",
+        "银行业": "银行",
+        "芯片": "半导体",
+        "券商": "证券",
+        "医药生物": "创新药",
+        "电力": "公用事业",
+        "军工": "国防军工",
+        "光伏设备": "光伏",
+    }
+
+    async def get_industry_overview(self, industry: str) -> dict | None:
+        """用申万行业指数日线（sw_daily）算行业概览：最新点位、日涨跌、PE、年初至今。
+
+        sw_daily 免费层 1 次/小时，配合 _call 的 1 小时缓存 ——
+        每个行业每小时取一次真数据，取不到（限速/无映射）就返回 None 落到 Mock。
+        """
+        key = industry.strip()
+        canonical = self._SW_ALIASES.get(key, key)
+        code = self._SW_CODES.get(canonical)
+        if not code:
+            return None  # 没映射，让 Mock 接
+
+        today = datetime.utcnow().date()
+        year_start = today.replace(month=1, day=1)
+        try:
+            rows = await self._call(
+                "sw_daily",
+                params={
+                    "ts_code": code,
+                    "start_date": year_start.strftime("%Y%m%d"),
+                    "end_date": today.strftime("%Y%m%d"),
+                },
+                fields="ts_code,trade_date,name,close,pct_change,pe,pb",
+            )
+        except Exception as e:
+            logger.warning("tushare sw_daily %s failed: %s", code, e)
+            return None
+        if not rows:
+            return None
+
+        rows.sort(key=lambda r: r.get("trade_date") or "")
+        latest = rows[-1]
+        first = rows[0]
+        index_value = latest.get("close")
+        first_close = first.get("close")
+        ytd_return = None
+        if index_value is not None and first_close:
+            ytd_return = round((index_value - first_close) / first_close * 100, 2)
+
+        return {
+            "name": latest.get("name") or canonical,
+            "index_code": code,
+            "index_value": index_value,
+            "change_pct": latest.get("pct_change"),
+            "pe": latest.get("pe"),
+            "pb": latest.get("pb"),
+            "ytd_return": ytd_return,
+            "trade_date": latest.get("trade_date"),
+        }
+
     # ---------- News ----------
 
     async def search_news(
@@ -322,7 +424,7 @@ class TushareProvider(DataProvider):
         """
         # 只用日期粒度的窗口（Tushare news 端点对格式挑剔）。
         # 把当前时间向下取整到 1 小时，让缓存 key 按小时分组。
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
         start = (now - timedelta(days=2)).strftime("%Y-%m-%d")

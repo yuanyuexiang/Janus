@@ -68,9 +68,11 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
     }
   }, [editing]);
 
-  useEffect(() => {
+  function startEditing() {
+    // 进入编辑态时以当前标题为草稿初值，不用 effect 同步（避免 setState-in-effect）
     setDraft(item.title ?? "");
-  }, [item.title]);
+    setEditing(true);
+  }
 
   // 卸载时清掉待确认定时器
   useEffect(() => {
@@ -228,7 +230,7 @@ function ConversationRow({ item, active, onSelect, onAfterMutate }: RowProps) {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setEditing(true);
+                  startEditing();
                 }}
                 className="hover:text-gilt-700 dark:hover:text-gilt-300"
                 title="改名"
