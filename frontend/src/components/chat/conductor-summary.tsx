@@ -38,6 +38,47 @@ const VERDICT_TONE: Record<CouncilSummary["verdict"], string> = {
   split: "bg-vermillion-500/15 text-vermillion-700 ring-vermillion-500/40 dark:bg-vermillion-500/25 dark:text-vermillion-300 dark:ring-vermillion-300/40",
 };
 
+// 检测流式文本是否是结构化 JSON 输出（与 advisor-bubble 同款，含已知 key 兜底）
+const STRUCTURED_KEY_PATTERN =
+  /"(stance|confidence|summary_for_user|key_points|concerns|what_could_change_my_mind|final_summary|consensus|disagreements|key_variables|risk_map|verdict)"\s*:/;
+
+function looksLikeStructuredJson(text: string): boolean {
+  const t = text.trimStart();
+  if (t.startsWith("{") || t.startsWith("[")) return true;
+  return STRUCTURED_KEY_PATTERN.test(text);
+}
+
+// 执棋的流式骨架：比 advisor 多一段（模拟最终输出的 summary + consensus + disagreements）
+function ConductorStreamingSkeleton() {
+  const barColor = "bg-parchment-300/60 dark:bg-walnut-300/25";
+  return (
+    <div className="space-y-5">
+      <p className="font-display text-[13px] italic text-gilt-700 dark:text-gilt-300/80">
+        执棋整理中…
+      </p>
+      {/* 模拟 final_summary 引用块 */}
+      <div className="space-y-2.5 border-l-2 border-gilt-500/40 pl-4 motion-safe:animate-pulse">
+        <div className={`h-3 w-[95%] rounded-sm ${barColor}`} />
+        <div className={`h-3 w-[88%] rounded-sm ${barColor}`} />
+        <div className={`h-3 w-[64%] rounded-sm ${barColor}`} />
+      </div>
+      {/* 模拟 共识 / 分歧 两段 */}
+      <div className="space-y-3 motion-safe:animate-pulse">
+        <div className={`h-2.5 w-[26%] rounded-sm ${barColor}`} />
+        <div className="space-y-2 pl-3">
+          <div className={`h-3 w-[80%] rounded-sm ${barColor}`} />
+          <div className={`h-3 w-[70%] rounded-sm ${barColor}`} />
+        </div>
+        <div className={`h-2.5 w-[26%] rounded-sm ${barColor} mt-3`} />
+        <div className="space-y-2 pl-3">
+          <div className={`h-3 w-[85%] rounded-sm ${barColor}`} />
+          <div className={`h-3 w-[55%] rounded-sm ${barColor}`} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SeverityBar({ level }: { level: number }) {
   return (
     <span className="inline-flex items-center gap-[2px]">
@@ -123,13 +164,21 @@ export function ConductorSummary({
       {showStream ? (
         <div className="text-[14px] leading-7 text-ink-900 dark:text-parchment-100">
           {streamingText ? (
-            <Markdown>{streamingText}</Markdown>
+            looksLikeStructuredJson(streamingText) ? (
+              // 结构化综合输出 —— 屏蔽原 JSON，骨架占位
+              <ConductorStreamingSkeleton />
+            ) : (
+              // 自然语言铺垫，正常 Markdown 渲染
+              <>
+                <Markdown>{streamingText}</Markdown>
+                <span className="ml-0.5 inline-block h-3 w-[2px] bg-gilt-500 align-middle motion-safe:animate-pulse" />
+              </>
+            )
           ) : (
             <p className="font-display italic text-walnut-50/60 dark:text-parchment-200/50">
               执棋整理中…
             </p>
           )}
-          <span className="ml-0.5 inline-block h-3 w-[2px] bg-gilt-500 align-middle motion-safe:animate-pulse" />
         </div>
       ) : (
         summary && (

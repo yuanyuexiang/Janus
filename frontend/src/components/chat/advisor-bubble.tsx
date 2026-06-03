@@ -19,6 +19,48 @@ function skillShortName(path: string): string {
   return path.split("/").pop() ?? path;
 }
 
+// 判定流式文本是否是结构化 JSON 输出 ——
+// 某些中转把工具结构化输出当成 text deltas 吐回来，露原文 UX 极差，需要拦截
+// 检测两层：1) 首字符是 { / [  2) 出现 AdvisorOpinion / CouncilSummary 的已知 key
+const STRUCTURED_KEY_PATTERN =
+  /"(stance|confidence|summary_for_user|key_points|concerns|what_could_change_my_mind|final_summary|consensus|disagreements|key_variables|risk_map|verdict)"\s*:/;
+
+function looksLikeStructuredJson(text: string): boolean {
+  const t = text.trimStart();
+  if (t.startsWith("{") || t.startsWith("[")) return true;
+  return STRUCTURED_KEY_PATTERN.test(text);
+}
+
+// 流式期间的骨架占位：3 行不等宽脉冲条，模拟最终结构化输出的形态
+function StreamingSkeleton({
+  status,
+  accent,
+}: {
+  status: string;
+  accent?: string;
+}) {
+  const barColor = "bg-parchment-300/60 dark:bg-walnut-300/25";
+  return (
+    <div className="space-y-3.5">
+      <p
+        className="font-display text-[13px] italic"
+        style={{ color: accent ?? "var(--color-walnut-100)" }}
+      >
+        {status}
+      </p>
+      <div className="space-y-2 motion-safe:animate-pulse">
+        <div className={`h-3 w-[92%] rounded-sm ${barColor}`} />
+        <div className={`h-3 w-[78%] rounded-sm ${barColor}`} />
+        <div className={`h-3 w-[58%] rounded-sm ${barColor}`} />
+      </div>
+      <div className="space-y-2 pt-1 motion-safe:animate-pulse">
+        <div className={`h-2.5 w-[40%] rounded-sm ${barColor}`} />
+        <div className={`h-2.5 w-[68%] rounded-sm ${barColor}`} />
+      </div>
+    </div>
+  );
+}
+
 export type AdvisorBubbleProps = {
   display: string;
   role: string;
@@ -103,16 +145,27 @@ export function AdvisorBubble({
       {showStream ? (
         <div className="text-[14px] leading-7 text-ink-900 dark:text-parchment-100">
           {streamingText ? (
-            <Markdown>{streamingText}</Markdown>
+            looksLikeStructuredJson(streamingText) ? (
+              // 结构化观点正在生成 —— 不暴露原始 JSON，骨架占位
+              <StreamingSkeleton
+                status={`${display}正在拟定观点…`}
+                accent={color}
+              />
+            ) : (
+              // 自然语言"思考出声"，正常 Markdown 渲染
+              <>
+                <Markdown>{streamingText}</Markdown>
+                <span
+                  className="ml-0.5 inline-block h-3 w-[2px] align-middle motion-safe:animate-pulse"
+                  style={{ backgroundColor: color }}
+                />
+              </>
+            )
           ) : (
             <p className="font-display italic text-walnut-50/60 dark:text-parchment-200/50">
               静候发言…
             </p>
           )}
-          <span
-            className="ml-0.5 inline-block h-3 w-[2px] align-middle motion-safe:animate-pulse"
-            style={{ backgroundColor: color }}
-          />
         </div>
       ) : (
         opinion && (

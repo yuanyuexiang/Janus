@@ -280,7 +280,15 @@ export default function ChatPage() {
       const next = [...prev];
       for (let i = next.length - 1; i >= 0; i--) {
         if (next[i].kind === "council") {
-          const c = { ...(next[i] as CouncilTurn) };
+          const orig = next[i] as CouncilTurn;
+          // 必须把 advisors / conductor 都深一层拷贝 —— mut 通过
+          // c.advisors[name] = {...} 形式赋值会污染共享对象，React 18
+          // 严格模式两次跑 updater 时会导致 chunk 重复累积（"好的好的"）
+          const c: CouncilTurn = {
+            ...orig,
+            advisors: { ...orig.advisors },
+            conductor: orig.conductor ? { ...orig.conductor } : null,
+          };
           mut(c);
           next[i] = c;
           return next;
