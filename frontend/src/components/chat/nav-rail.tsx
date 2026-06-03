@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { AccountControls } from "@/components/chat/account-controls";
 import { ThemeToggle } from "@/components/chat/theme-toggle";
 
 type RailItemDef = {
@@ -70,12 +71,11 @@ export function NavRail() {
         })}
       </div>
 
-      {/* 底部：主题切换 */}
-      <div className="mt-auto self-stretch px-2 pt-2">
+      {/* 底部：主题切换 + 账户控制 */}
+      <div className="mt-auto flex flex-col items-stretch self-stretch px-2 pt-2">
         <div className="mx-auto mb-2 h-px w-8 bg-parchment-300/60 dark:bg-walnut-300/30" />
-        <div className="flex justify-center">
-          <ThemeToggle />
-        </div>
+        <ThemeToggle />
+        <AccountControls />
       </div>
     </nav>
   );

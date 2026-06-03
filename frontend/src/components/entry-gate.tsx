@@ -71,8 +71,13 @@ export function EntryGate() {
 
   // locked：密码解锁
   return (
-    <form onSubmit={unlock} className="flex flex-col gap-3">
-      <div className="flex items-center gap-2 rounded-lg border border-parchment-300/70 bg-parchment-50 py-1.5 pl-4 pr-1.5 shadow-paper transition focus-within:border-gilt-500/70 focus-within:ring-2 focus-within:ring-gilt-500/20 dark:border-walnut-300/35 dark:bg-walnut-700/50 dark:focus-within:border-gilt-300/60 dark:focus-within:ring-gilt-300/20">
+    <form onSubmit={unlock} className="flex w-full max-w-sm flex-col items-center gap-2.5">
+      <div className="flex w-full items-center gap-2 rounded-xl border border-parchment-300/70 bg-parchment-50 py-2 pl-4 pr-2 shadow-paper transition focus-within:border-gilt-500/70 focus-within:ring-2 focus-within:ring-gilt-500/20 dark:border-walnut-300/35 dark:bg-walnut-700/50 dark:focus-within:border-gilt-300/60 dark:focus-within:ring-gilt-300/20">
+        {/* 锁图标 */}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-4 w-4 shrink-0 text-walnut-50/60 dark:text-parchment-200/40">
+          <rect x="5" y="10.5" width="14" height="9" rx="2" />
+          <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" strokeLinecap="round" />
+        </svg>
         <input
           type="password"
           value={pw}
@@ -83,12 +88,12 @@ export function EntryGate() {
           autoFocus
           placeholder="输入访问密码"
           aria-label="访问密码"
-          className="block w-48 bg-transparent py-1 font-display text-[14px] text-ink-900 placeholder:text-walnut-50/50 focus:outline-none dark:text-parchment-100 dark:placeholder:text-parchment-200/40"
+          className="min-w-0 flex-1 bg-transparent py-1 font-display text-[14px] text-ink-900 placeholder:text-walnut-50/50 focus:outline-none dark:text-parchment-100 dark:placeholder:text-parchment-200/40"
         />
         <button
           type="submit"
           disabled={busy || !pw.trim()}
-          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md bg-walnut-500 px-3 font-display text-[12px] tracking-wider text-parchment-100 transition-colors hover:bg-walnut-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-gilt-500 dark:text-walnut-900 dark:hover:bg-gilt-300 nasdaq:bg-gilt-500 nasdaq:text-parchment-50 nasdaq:hover:bg-gilt-300"
+          className="inline-flex h-8 shrink-0 items-center rounded-lg bg-walnut-500 px-4 font-display text-[12px] tracking-wider text-parchment-100 transition-colors hover:bg-walnut-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-gilt-500 dark:text-walnut-900 dark:hover:bg-gilt-300 nasdaq:bg-gilt-500 nasdaq:text-parchment-50 nasdaq:hover:bg-gilt-300"
         >
           {busy ? "验证中…" : "解锁"}
         </button>

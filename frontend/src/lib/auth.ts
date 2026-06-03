@@ -57,3 +57,32 @@ export async function verifyAccessKey(key: string): Promise<boolean> {
     return false;
   }
 }
+
+/** 退出：清掉本地密钥并回首页解锁。 */
+export function logout() {
+  clearAccessKey();
+  if (typeof window !== "undefined") window.location.href = "/";
+}
+
+/** 改密码：校验当前密码 → 落盘新密码。成功后本地密钥更新为新密码。
+ * 返回 null 表示成功，否则返回错误信息。 */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/change`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+    if (res.ok) {
+      setAccessKey(newPassword); // 让当前会话继续有效
+      return null;
+    }
+    const body = (await res.json().catch(() => null)) as { detail?: string } | null;
+    return body?.detail ?? `修改失败（${res.status}）`;
+  } catch {
+    return "网络错误，请重试";
+  }
+}
