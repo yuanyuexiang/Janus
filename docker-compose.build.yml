@@ -80,6 +80,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     image: ${BACKEND_IMAGE:-yuanyuexiang/janus-backend:latest}
+    platform: linux/amd64
     restart: unless-stopped
     depends_on:
       postgres:
@@ -113,6 +114,7 @@ services:
         # 本地测试默认 localhost；构建生产镜像时用 NEXT_PUBLIC_API_BASE=https://域名 覆盖
         NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8000}
     image: ${FRONTEND_IMAGE:-yuanyuexiang/janus-frontend:latest}
+    platform: linux/amd64
     restart: unless-stopped
     depends_on:
       - backend
