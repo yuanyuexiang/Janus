@@ -1,0 +1,125 @@
+# ============================================================
+# 本地「编译 + 测试」用 compose
+#
+# 与部署文件（docker-compose.yml）的区别：
+#   - 这里有 build:（从源码编镜像）；部署文件只用 image: 引用编好的镜像
+#   - 镜像名与部署文件一致（janus-backend / janus-frontend / janus-choice-gateway）
+#     所以这里 build 出来的就是部署要用的镜像
+#   - 不接 Traefik、不用 external 网络，端口直接开在 127.0.0.1，方便本地访问
+#   - NEXT_PUBLIC_API_BASE 默认 localhost（本地浏览器直连后端）
+#
+# 用法：
+#   # 1) 本地编译并起全栈测试（前端用 localhost 连后端）
+#   docker compose -f docker-compose.build.yml up --build
+#
+#   # 2) 只编译镜像（不跑）
+#   docker compose -f docker-compose.build.yml build
+#
+#   # 3) 编译「生产」镜像（前端烤进生产域名）→ 之后 push 或 save 到服务器
+#   NEXT_PUBLIC_API_BASE=https://janus.matrix-net.tech \
+#     docker compose -f docker-compose.build.yml build
+#   # 推到 registry（先 docker login）：
+#   docker compose -f docker-compose.build.yml push
+#   # 或离线导出导入：
+#   docker save janus-backend:latest janus-frontend:latest janus-choice-gateway:latest \
+#     | gzip | ssh 服务器 'gunzip | docker load'
+# ============================================================
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: yuanzhuo
+      POSTGRES_USER: yuanzhuo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yuanzhuo}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yuanzhuo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  choice-gateway:
+    build:
+      context: ./choice-gateway
+      dockerfile: Dockerfile
+    image: ${CHOICE_GATEWAY_IMAGE:-yuanyuexiang/janus-choice-gateway:latest}
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9001:9001"
+    env_file:
+      - ./choice-gateway/.env
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:9001/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-yuanyuexiang/janus-backend:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      choice-gateway:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://yuanzhuo:${POSTGRES_PASSWORD:-yuanzhuo}@postgres:5432/yuanzhuo
+      REDIS_URL: redis://redis:6379/0
+      CHOICE_GATEWAY_URL: http://choice-gateway:9001
+    env_file:
+      - ./backend/.env
+    volumes:
+      - backend_data:/app/data
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # 本地测试默认 localhost；构建生产镜像时用 NEXT_PUBLIC_API_BASE=https://域名 覆盖
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8000}
+    image: ${FRONTEND_IMAGE:-yuanyuexiang/janus-frontend:latest}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  pg_data:
+  redis_data:
+  backend_data:

@@ -42,9 +42,8 @@ services:
   # 注意：vendor/EmQuantAPI/libs/ 被 gitignore —— 服务器上 build 前必须先把 SDK
   #       二进制（libEMQuantAPIx64.so 等）拷到该目录，否则容器启动 SDK import 失败。
   choice-gateway:
-    build:
-      context: ./choice-gateway
-      dockerfile: Dockerfile
+    # 用预编译镜像（由 docker-compose.build.yml 构建并推送/导入）
+    image: ${CHOICE_GATEWAY_IMAGE:-yuanyuexiang/janus-choice-gateway:latest}
     platform: linux/amd64
     restart: unless-stopped
     ports:
@@ -64,9 +63,7 @@ services:
 
   # ---------- backend ----------
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-yuanyuexiang/janus-backend:latest}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -108,15 +105,10 @@ services:
       - "traefik.http.routers.backend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-aliyunresolver}"
 
   # ---------- frontend ----------
-  # Next.js standalone。NEXT_PUBLIC_API_BASE 是「构建时」注入，浏览器端直连此地址。
-  # 同源部署：填公网域名（与页面同域），浏览器走 https://域名/api → Traefik 转 backend，
-  # 顺带免 CORS、无 mixed content。改域名时记得同步重新 build frontend。
+  # 预编译镜像。注意：NEXT_PUBLIC_API_BASE 是「构建时」烤进镜像的（见 build 文件），
+  # 所以构建 frontend 镜像时就要带上生产域名，部署阶段无法再改。
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-https://janus.matrix-net.tech}
+    image: ${FRONTEND_IMAGE:-yuanyuexiang/janus-frontend:latest}
     restart: unless-stopped
     depends_on:
       - backend
