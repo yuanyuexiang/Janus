@@ -18,7 +18,13 @@ RUN uv sync --no-dev || uv sync
 # 应用代码
 COPY app /app/app
 COPY alembic.ini /app/
+COPY docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh
+
+# 改密码哈希等运行时数据落在这里，compose 挂卷持久化
+RUN mkdir -p /app/data
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 启动时先迁移再起服务
+CMD ["/app/docker-entrypoint.sh"]

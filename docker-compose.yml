@@ -6,9 +6,12 @@ services:
     environment:
       POSTGRES_DB: yuanzhuo
       POSTGRES_USER: yuanzhuo
-      POSTGRES_PASSWORD: yuanzhuo
+      # 生产务必通过环境变量覆盖：POSTGRES_PASSWORD=强密码 docker compose up
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yuanzhuo}
     ports:
       - "127.0.0.1:5432:5432"
+    networks:
+      - matrix-network
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,6 +26,8 @@ services:
     command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
     ports:
       - "127.0.0.1:6379:6379"
+    networks:
+      - matrix-network
     volumes:
       - redis_data:/data
     healthcheck:
@@ -34,6 +39,8 @@ services:
   # ---------- Choice 数据网关 ----------
   # 独立服务，进程级隔离：SDK 崩了不影响 backend
   # 强制 linux/amd64：SDK 只有 x86_64 的 .so（Apple Silicon 上自动 Rosetta 转译）
+  # 注意：vendor/EmQuantAPI/libs/ 被 gitignore —— 服务器上 build 前必须先把 SDK
+  #       二进制（libEMQuantAPIx64.so 等）拷到该目录，否则容器启动 SDK import 失败。
   choice-gateway:
     build:
       context: ./choice-gateway
@@ -42,15 +49,12 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:9001:9001"
+    networks:
+      - matrix-network
     # 账密直登模式：账号开通量化权限后，c.start ForceLogin=1 即可，每次启动重登。
-    # 不写 userInfo，因此**不需要持久化卷** —— 这避免了"卷挂在 libs/linux/x64
-    # 上会遮盖 .so 和 ServerList.json.e"的隐性 bug。
+    # 不写 userInfo，因此不需要持久化卷。
     env_file:
       - ./choice-gateway/.env
-    # SMS 激活模式备选（账号不支持账密时启用）：取消下面注释，
-    # 用单文件 bind mount 只持久化 userInfo 一个文件，不遮 SDK 二进制。
-    # volumes:
-    #   - ./choice-gateway/data/userInfo:/sdk/libs/linux/x64/userInfo
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:9001/healthz"]
       interval: 30s
@@ -72,16 +76,75 @@ services:
       choice-gateway:
         condition: service_started
     environment:
-      DATABASE_URL: postgresql+asyncpg://yuanzhuo:yuanzhuo@postgres:5432/yuanzhuo
+      DATABASE_URL: postgresql+asyncpg://yuanzhuo:${POSTGRES_PASSWORD:-yuanzhuo}@postgres:5432/yuanzhuo
       REDIS_URL: redis://redis:6379/0
       # gateway 是 compose 内 DNS 名；backend 通过它走 HTTP
       CHOICE_GATEWAY_URL: http://choice-gateway:9001
-      # 其余环境变量从 .env 读
+      # 其余环境变量（RELAY_*、TUSHARE_TOKEN、ACCESS_PASSWORD 等）从 .env 读
     env_file:
       - ./backend/.env
+    volumes:
+      # 改密码哈希等运行时数据 —— 必须持久化，否则容器重建密码丢失
+      - backend_data:/app/data
     ports:
       - "127.0.0.1:8000:8000"
+    networks:
+      - matrix-network
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+      - "traefik.enable=true"
+      # 同域名下 /api/* 路由到后端（比 frontend 的 Host(...) 更具体，Traefik 自动判优先级）
+      - "traefik.http.routers.backend.rule=Host(`${JANUS_DOMAIN:-janus.matrix-net.tech}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.backend.service=backend"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+      # --- HTTPS（如用 HTTP-only，删掉下面两行，并把 entrypoint 设为 web）---
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-aliyunresolver}"
+
+  # ---------- frontend ----------
+  # Next.js standalone。NEXT_PUBLIC_API_BASE 是「构建时」注入，浏览器端直连此地址。
+  # 同源部署：填公网域名（与页面同域），浏览器走 https://域名/api → Traefik 转 backend，
+  # 顺带免 CORS、无 mixed content。改域名时记得同步重新 build frontend。
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-https://janus.matrix-net.tech}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - matrix-network
+    labels:
+      - "traefik.enable=true"
+      # 回源网络由 traefik 全局 --providers.docker.network=matrix-network 决定，无需在此重复
+      # 路由规则：按域名。如需路径前缀路由可改用 PathPrefix(`/argus`) 等
+      - "traefik.http.routers.frontend.rule=Host(`${JANUS_DOMAIN:-janus.matrix-net.tech}`)"
+      - "traefik.http.routers.frontend.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.frontend.service=frontend"
+      # 回源端口
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+      # --- HTTPS（如用 HTTP-only，删掉下面两行，并把 entrypoint 设为 web）---
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-aliyunresolver}"
+
 
 volumes:
   pg_data:
   redis_data:
+  backend_data:
+
+networks:
+  # 开发阶段：所有服务都接同一张 Traefik 共享网（已存在）
+  # 注意：这样 postgres/redis 对该网络里其他 app 容器可见，上线前应改回 internal 隔离
+  matrix-network:
+    external: true
