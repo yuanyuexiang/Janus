@@ -95,14 +95,16 @@ services:
       start_period: 20s
     labels:
       - "traefik.enable=true"
-      # 同域名下 /api/* 路由到后端（比 frontend 的 Host(...) 更具体，Traefik 自动判优先级）
-      - "traefik.http.routers.backend.rule=Host(`${JANUS_DOMAIN:-janus.matrix-net.tech}`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.backend.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
-      - "traefik.http.routers.backend.service=backend"
-      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+      # 同域名下 /api/* 路由到后端。显式高优先级，确保比 frontend 的 Host(...) 先匹配。
+      # router/service 名加 janus- 前缀，避免与共享 Traefik 网上其他 app 撞名。
+      - "traefik.http.routers.janus-backend.rule=Host(`${JANUS_DOMAIN:-janus.matrix-net.tech}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.janus-backend.priority=100"
+      - "traefik.http.routers.janus-backend.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.janus-backend.service=janus-backend"
+      - "traefik.http.services.janus-backend.loadbalancer.server.port=8000"
       # --- HTTPS（如用 HTTP-only，删掉下面两行，并把 entrypoint 设为 web）---
-      - "traefik.http.routers.backend.tls=true"
-      - "traefik.http.routers.backend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-aliyunresolver}"
+      - "traefik.http.routers.janus-backend.tls=true"
+      - "traefik.http.routers.janus-backend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-aliyunresolver}"
 
   # ---------- frontend ----------
   # 预编译镜像。API 地址在「运行时」由 API_BASE 注入（见 layout.tsx），
@@ -123,15 +125,16 @@ services:
     labels:
       - "traefik.enable=true"
       # 回源网络由 traefik 全局 --providers.docker.network=matrix-network 决定，无需在此重复
-      # 路由规则：按域名。如需路径前缀路由可改用 PathPrefix(`/argus`) 等
-      - "traefik.http.routers.frontend.rule=Host(`${JANUS_DOMAIN:-janus.matrix-net.tech}`)"
-      - "traefik.http.routers.frontend.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
-      - "traefik.http.routers.frontend.service=frontend"
+      # 路由规则：按域名（兜底，/api 已被 janus-backend 的高优先级抢先）
+      # router/service 名加 janus- 前缀，避免与共享 Traefik 网上其他 app 撞名。
+      - "traefik.http.routers.janus-frontend.rule=Host(`${JANUS_DOMAIN:-janus.matrix-net.tech}`)"
+      - "traefik.http.routers.janus-frontend.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.janus-frontend.service=janus-frontend"
       # 回源端口
-      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+      - "traefik.http.services.janus-frontend.loadbalancer.server.port=3000"
       # --- HTTPS（如用 HTTP-only，删掉下面两行，并把 entrypoint 设为 web）---
-      - "traefik.http.routers.frontend.tls=true"
-      - "traefik.http.routers.frontend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-aliyunresolver}"
+      - "traefik.http.routers.janus-frontend.tls=true"
+      - "traefik.http.routers.janus-frontend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-aliyunresolver}"
 
 
 volumes:
