@@ -22,11 +22,16 @@ RUN uv sync --no-dev
 COPY app /app/app
 
 # 3) SDK：拷到固定路径 /sdk
-#    PYTHONPATH=/sdk 让 `from EmQuantAPI import c` 能找到模块；
-#    SDK 内部用 `__file__` 自定位 libs/linux/x64/.so，cwd 不重要。
-#    libs/linux/x64/ 还是 userInfo 文件的写入目录 —— 挂卷在 compose 里。
+#    PYTHONPATH=/sdk 让 `from EmQuantAPI import c` 能找到模块。
 COPY vendor/EmQuantAPI /sdk
 ENV PYTHONPATH=/sdk
+
+# 4) 关键：EmQuantAPI 定位 .so 的方式是读 site-packages 里的 EmQuantAPI.pth，
+#    第一行当作 SDK base 目录，再拼 libs/linux/x64/libEMQuantAPIx64.so。
+#    没有这个文件 → baseDir 为空 → CDLL("") 加载 python 自身 →
+#    "undefined symbol: start"。必须写进 uv venv 的 site-packages。
+RUN SP="$(/app/.venv/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" \
+    && echo /sdk > "$SP/EmQuantAPI.pth"
 
 EXPOSE 9001
 

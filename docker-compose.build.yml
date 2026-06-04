@@ -63,7 +63,7 @@ services:
       dockerfile: Dockerfile
       args:
         PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
-    image: ${CHOICE_GATEWAY_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-choice-gateway:v1}
+    image: ${CHOICE_GATEWAY_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-choice-gateway:v2}
     platform: linux/amd64
     restart: unless-stopped
     ports:

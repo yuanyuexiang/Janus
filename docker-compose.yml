@@ -11,7 +11,7 @@ services:
     ports:
       - "5432"
     networks:
-      - matrix-network
+      - internal
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,7 +27,7 @@ services:
     ports:
       - "6379"
     networks:
-      - matrix-network
+      - internal
     volumes:
       - redis_data:/data
     healthcheck:
@@ -43,13 +43,13 @@ services:
   #       二进制（libEMQuantAPIx64.so 等）拷到该目录，否则容器启动 SDK import 失败。
   choice-gateway:
     # 用预编译镜像（由 docker-compose.build.yml 构建并推送/导入）
-    image: ${CHOICE_GATEWAY_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-choice-gateway:v1}
+    image: ${CHOICE_GATEWAY_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-choice-gateway:v2}
     platform: linux/amd64
     restart: unless-stopped
     ports:
       - "127.0.0.1:9001:9001"
     networks:
-      - matrix-network
+      - internal
     # 账密直登模式：账号开通量化权限后，c.start ForceLogin=1 即可，每次启动重登。
     # 不写 userInfo，因此不需要持久化卷。
     env_file:
@@ -86,6 +86,8 @@ services:
     ports:
       - "8000"
     networks:
+      # 双网：internal 连 db/redis/gateway（私有，名字不跟共享网撞）；matrix-network 被 Traefik 回源
+      - internal
       - matrix-network
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
@@ -143,7 +145,10 @@ volumes:
   backend_data:
 
 networks:
-  # 开发阶段：所有服务都接同一张 Traefik 共享网（已存在）
-  # 注意：这样 postgres/redis 对该网络里其他 app 容器可见，上线前应改回 internal 隔离
+  # Traefik 共享网（已存在）：只有 backend + frontend 接入，供反代回源
   matrix-network:
     external: true
+  # 数据层私有网：postgres / redis / choice-gateway / backend 在这里互相通信，
+  # 名字（redis/postgres/...）只在本网解析，不跟共享网上其他 app 撞 —— 修 Redis 断开的关键
+  internal:
+    driver: bridge
