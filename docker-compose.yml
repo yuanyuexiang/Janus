@@ -9,7 +9,7 @@ services:
       # 生产务必通过环境变量覆盖：POSTGRES_PASSWORD=强密码 docker compose up
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yuanzhuo}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "5432"
     networks:
       - matrix-network
     volumes:
@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
     command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6379"
     networks:
       - matrix-network
     volumes:
@@ -43,7 +43,7 @@ services:
   #       二进制（libEMQuantAPIx64.so 等）拷到该目录，否则容器启动 SDK import 失败。
   choice-gateway:
     # 用预编译镜像（由 docker-compose.build.yml 构建并推送/导入）
-    image: ${CHOICE_GATEWAY_IMAGE:-yuanyuexiang/janus-choice-gateway:latest}
+    image: ${CHOICE_GATEWAY_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-choice-gateway:v1}
     platform: linux/amd64
     restart: unless-stopped
     ports:
@@ -55,7 +55,7 @@ services:
     env_file:
       - ./choice-gateway/.env
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:9001/healthz"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9001/healthz', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -63,7 +63,7 @@ services:
 
   # ---------- backend ----------
   backend:
-    image: ${BACKEND_IMAGE:-yuanyuexiang/janus-backend:latest}
+    image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-backend:v1}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -84,11 +84,11 @@ services:
       # 改密码哈希等运行时数据 —— 必须持久化，否则容器重建密码丢失
       - backend_data:/app/data
     ports:
-      - "127.0.0.1:8000:8000"
+      - "8000"
     networks:
       - matrix-network
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:8000/api/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -105,15 +105,19 @@ services:
       - "traefik.http.routers.backend.tls.certresolver=${TRAEFIK_CERTRESOLVER:-aliyunresolver}"
 
   # ---------- frontend ----------
-  # 预编译镜像。注意：NEXT_PUBLIC_API_BASE 是「构建时」烤进镜像的（见 build 文件），
-  # 所以构建 frontend 镜像时就要带上生产域名，部署阶段无法再改。
+  # 预编译镜像。API 地址在「运行时」由 API_BASE 注入（见 layout.tsx），
+  # 改地址不用重新构建，改这里 + 重启即可。
   frontend:
-    image: ${FRONTEND_IMAGE:-yuanyuexiang/janus-frontend:latest}
+    image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-frontend:v1}
     restart: unless-stopped
+    environment:
+      # 浏览器调用的 API 地址。留空 = 相对 /api（同源 Traefik 部署推荐，任何域名都对）。
+      # 若前后端不同域，填后端完整地址，如 https://api.example.com
+      API_BASE: ${API_BASE:-}
     depends_on:
       - backend
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000"
     networks:
       - matrix-network
     labels:

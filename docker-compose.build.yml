@@ -61,7 +61,9 @@ services:
     build:
       context: ./choice-gateway
       dockerfile: Dockerfile
-    image: ${CHOICE_GATEWAY_IMAGE:-yuanyuexiang/janus-choice-gateway:latest}
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+    image: ${CHOICE_GATEWAY_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-choice-gateway:v1}
     platform: linux/amd64
     restart: unless-stopped
     ports:
@@ -69,7 +71,7 @@ services:
     env_file:
       - ./choice-gateway/.env
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:9001/healthz"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9001/healthz', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -79,7 +81,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: ${BACKEND_IMAGE:-yuanyuexiang/janus-backend:latest}
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+    image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-backend:v1}
     platform: linux/amd64
     restart: unless-stopped
     depends_on:
@@ -100,7 +104,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:8000/api/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -111,11 +115,15 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # 本地测试默认 localhost；构建生产镜像时用 NEXT_PUBLIC_API_BASE=https://域名 覆盖
-        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8000}
-    image: ${FRONTEND_IMAGE:-yuanyuexiang/janus-frontend:latest}
+        # npm 源：默认国内镜像；海外构建可传 NPM_REGISTRY=https://registry.npmjs.org
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+    image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-frontend:v1}
     platform: linux/amd64
     restart: unless-stopped
+    environment:
+      # 本地测试：前端容器 :3000、后端容器 :8000 是不同源 → 浏览器要打绝对地址。
+      # API 地址现在是「运行时」注入（不再烤进镜像），改地址不用重新 build。
+      API_BASE: ${API_BASE:-http://localhost:8000}
     depends_on:
       - backend
     ports:

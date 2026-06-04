@@ -1,6 +1,24 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
-
 import { authHeaders, clearAccessKey } from "@/lib/auth";
+
+declare global {
+  interface Window {
+    __API_BASE__?: string;
+  }
+}
+
+// 浏览器端 API 地址来源优先级：
+//  1) 运行时注入：layout 从容器环境变量 API_BASE 写进 window.__API_BASE__
+//     —— 这样部署时在 docker-compose 的 environment 里配即可，不用重新构建
+//  2) 构建时 NEXT_PUBLIC_API_BASE（pnpm dev 时用 .env.local 设）
+//  3) 相对路径 ""（同源 Traefik 部署：浏览器走 /api，反代转后端，任何域名都对）
+function resolveApiBase(): string {
+  if (typeof window !== "undefined" && typeof window.__API_BASE__ === "string") {
+    return window.__API_BASE__;
+  }
+  return process.env.NEXT_PUBLIC_API_BASE ?? "";
+}
+
+export const API_BASE = resolveApiBase();
 
 /** 401 → 清掉失效密钥并退回首页解锁。 */
 export function handleUnauthorized(status: number): boolean {
