@@ -7,10 +7,40 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Conversation, Member, Message
+from app.db.models import Conversation, LlmSetting, Member, Message
 
 DEMO_MEMBER_EMAIL = "demo@yuanzhuo.local"
 DEMO_MEMBER_NAME = "Demo Member"
+
+
+# ---------- LLM 配置 ----------
+
+
+async def get_llm_settings(db: AsyncSession) -> list[LlmSetting]:
+    res = await db.execute(select(LlmSetting))
+    return list(res.scalars().all())
+
+
+async def upsert_llm_setting(
+    db: AsyncSession,
+    *,
+    role: str,
+    model: str | None,
+    api_base: str | None,
+    api_key_enc: str | None,
+) -> LlmSetting:
+    """新增/更新某角色配置。api_key_enc=None 表示「不动已存的 key」。"""
+    obj = await db.get(LlmSetting, role)
+    if obj is None:
+        obj = LlmSetting(role=role)
+        db.add(obj)
+    obj.model = model
+    obj.api_base = api_base
+    if api_key_enc is not None:
+        obj.api_key_enc = api_key_enc
+    await db.commit()
+    await db.refresh(obj)
+    return obj
 
 
 async def get_or_create_demo_member(db: AsyncSession) -> Member:

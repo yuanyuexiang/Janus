@@ -9,10 +9,9 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from app.config import get_settings
 from app.db.repository import get_conversation, update_conversation_title
 from app.db.session import SessionLocal
-from app.llm.client import get_client
+from app.llm.client import complete, is_configured
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +27,8 @@ TITLER_SYSTEM = (
 
 
 async def generate_title(question: str, summary_hint: str | None = None) -> str | None:
-    settings = get_settings()
-    if not settings.relay_base_url or not settings.relay_api_key:
+    if not is_configured("router"):  # 标题用 router 角色，没配就跳过
         return None
-    client = get_client()
     parts = [f"用户提问：\n{question}"]
     if summary_hint:
         parts.append(f"\n首位顾问的总结要点：\n{summary_hint[:400]}")
@@ -39,20 +36,16 @@ async def generate_title(question: str, summary_hint: str | None = None) -> str 
     user_msg = "\n".join(parts)
 
     try:
-        resp = await client.messages.create(
-            model=settings.router_model,
-            max_tokens=64,
-            system=TITLER_SYSTEM,
+        raw, _usage = await complete(
+            role="router",
             messages=[{"role": "user", "content": user_msg}],
+            system=TITLER_SYSTEM,
+            max_tokens=64,
         )
     except Exception as e:
         logger.warning("titler LLM 调用失败: %s", e)
         return None
 
-    raw = ""
-    for block in resp.content:
-        if block.type == "text":
-            raw += block.text
     logger.warning("titler 原始返回: %r", raw[:200])
     text = raw.strip()
     if not text:

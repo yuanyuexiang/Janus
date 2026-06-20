@@ -83,7 +83,7 @@ services:
       dockerfile: Dockerfile
       args:
         PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
-    image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-backend:v1}
+    image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-backend:v2}
     platform: linux/amd64
     restart: unless-stopped
     depends_on:
@@ -117,7 +117,7 @@ services:
       args:
         # npm 源：默认国内镜像；海外构建可传 NPM_REGISTRY=https://registry.npmjs.org
         NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
-    image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-frontend:v1}
+    image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-frontend:v2}
     platform: linux/amd64
     restart: unless-stopped
     environment:

@@ -69,8 +69,27 @@ class MCPManager:
     def known_tools(self) -> list[str]:
         return list(self._tool_index.keys())
 
-    def anthropic_specs(self, names: list[str]) -> list[dict[str, Any]]:
-        return [self._tool_index[n][1] for n in names if n in self._tool_index]
+    def openai_specs(self, names: list[str]) -> list[dict[str, Any]]:
+        """转成 OpenAI / litellm 的 tools 格式：
+        {"type": "function", "function": {"name", "description", "parameters": <json schema>}}
+        MCP 的 inputSchema 本身就是 JSON Schema，直接当 parameters 用。"""
+        specs: list[dict[str, Any]] = []
+        for n in names:
+            entry = self._tool_index.get(n)
+            if not entry:
+                continue
+            a = entry[1]  # {name, description, input_schema}
+            specs.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": a["name"],
+                        "description": a.get("description", ""),
+                        "parameters": a.get("input_schema") or {"type": "object", "properties": {}},
+                    },
+                }
+            )
+        return specs
 
     async def call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         if name not in self._tool_index:

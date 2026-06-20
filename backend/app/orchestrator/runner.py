@@ -1,4 +1,4 @@
-"""单顾问运行器：驱动一次 Anthropic Messages tool-use 循环，把过程包装成事件流。"""
+"""单顾问运行器：驱动一次 LLM tool-use 循环（OpenAI / litellm 格式），把过程包装成事件流。"""
 
 from __future__ import annotations
 
@@ -8,10 +8,7 @@ import re
 from collections.abc import AsyncIterator
 from typing import Any
 
-from anthropic import AsyncAnthropic
-
-from app.config import get_settings
-from app.llm.client import get_client
+from app.llm.client import stream_chat
 from app.mcp_client.manager import get_manager
 from app.orchestrator.advisors.base import BaseAdvisor
 from app.orchestrator.protocol import AdvisorOpinion
@@ -83,7 +80,6 @@ async def run_advisor(
     advisor: BaseAdvisor,
     question: str,
     *,
-    client: AsyncAnthropic | None = None,
     model: str | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """驱动一位顾问完整一轮推理，把过程包装成事件流。
@@ -97,12 +93,11 @@ async def run_advisor(
       {type: "stage", stage: "thinking"|"tool_use"|"done"}
       {type: "error", code, message}
     """
-    settings = get_settings()
-    client = client or get_client()
-    model = model or advisor.model or settings.default_advisor_model
+    # model=None → stream_chat 用 advisor 角色的默认模型；advisor.model 是按顾问的覆盖
+    model = model or advisor.model
 
     mcp = get_manager()
-    tool_specs = mcp.anthropic_specs(advisor.allowed_tools)
+    tool_specs = mcp.openai_specs(advisor.allowed_tools)
 
     skill_registry = get_skill_registry()
     active_skills = skill_registry.resolve(question=question, agent=advisor.profile.name)
@@ -125,55 +120,61 @@ async def run_advisor(
     tokens_in = 0
     tokens_out = 0
 
-    for turn in range(MAX_TOOL_TURNS):
+    for _turn in range(MAX_TOOL_TURNS):
         yield {"type": "stage", "stage": "thinking"}
 
-        async with client.messages.stream(
-            model=model,
-            max_tokens=2048,
+        done: dict[str, Any] | None = None
+        async for ev in stream_chat(
+            role="advisor",
+            model_override=model,
+            messages=messages,
             system=composed_system_prompt,
             tools=tool_specs or None,
-            messages=messages,
-        ) as stream:
-            async for event in stream:
-                if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                    chunk = event.delta.text
-                    accumulated_text += chunk
-                    yield {"type": "text", "chunk": chunk}
+            max_tokens=2048,
+        ):
+            if ev["type"] == "text":
+                accumulated_text += ev["chunk"]
+                yield {"type": "text", "chunk": ev["chunk"]}
+            elif ev["type"] == "done":
+                done = ev
 
-            final = await stream.get_final_message()
+        if done:
+            tokens_in += done["tokens_in"]
+            tokens_out += done["tokens_out"]
 
-        if final.usage:
-            tokens_in += final.usage.input_tokens or 0
-            tokens_out += final.usage.output_tokens or 0
-
-        assistant_content = [b.model_dump() for b in final.content]
-        messages.append({"role": "assistant", "content": assistant_content})
-
-        if final.stop_reason != "tool_use":
+        tool_calls = done["tool_calls"] if done else []
+        if not tool_calls:
             break
 
-        tool_results: list[dict[str, Any]] = []
-        for block in final.content:
-            if block.type != "tool_use":
-                continue
-            yield {
-                "type": "tool_call",
-                "tool": block.name,
-                "args": block.input,
-                "id": block.id,
+        # OpenAI 格式：先追加带 tool_calls 的 assistant 消息，再逐个追加 role=tool 的结果
+        messages.append(
+            {
+                "role": "assistant",
+                "content": (done["text"] or None) if done else None,
+                "tool_calls": [
+                    {
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {
+                            "name": tc["name"],
+                            "arguments": json.dumps(tc["args"], ensure_ascii=False),
+                        },
+                    }
+                    for tc in tool_calls
+                ],
             }
-            result = await mcp.call(block.name, block.input)
-            yield {"type": "tool_result", "tool": block.name, "result": result}
-            tool_results.append(
+        )
+        for tc in tool_calls:
+            yield {"type": "tool_call", "tool": tc["name"], "args": tc["args"], "id": tc["id"]}
+            result = await mcp.call(tc["name"], tc["args"])
+            yield {"type": "tool_result", "tool": tc["name"], "result": result}
+            messages.append(
                 {
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
                     "content": json.dumps(result, ensure_ascii=False),
                 }
             )
-
-        messages.append({"role": "user", "content": tool_results})
     else:
         yield {
             "type": "error",
@@ -204,20 +205,19 @@ async def run_advisor(
         )
 
         retry_text = ""
-        async with client.messages.stream(
-            model=model,
-            max_tokens=2048,
+        async for ev in stream_chat(
+            role="advisor",
+            model_override=model,
+            messages=messages,
             system=composed_system_prompt,
             tools=tool_specs or None,
-            messages=messages,
-        ) as stream:
-            async for event in stream:
-                if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                    retry_text += event.delta.text
-            retry_final = await stream.get_final_message()
-        if retry_final.usage:
-            tokens_in += retry_final.usage.input_tokens or 0
-            tokens_out += retry_final.usage.output_tokens or 0
+            max_tokens=2048,
+        ):
+            if ev["type"] == "text":
+                retry_text += ev["chunk"]
+            elif ev["type"] == "done":
+                tokens_in += ev["tokens_in"]
+                tokens_out += ev["tokens_out"]
         parsed = _extract_json_object(
             retry_text, required_keys=["stance", "confidence", "summary_for_user"]
         )

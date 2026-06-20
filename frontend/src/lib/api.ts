@@ -108,3 +108,55 @@ export async function deleteConversation(id: string): Promise<void> {
 export function exportConversationUrl(id: string, format: "md" | "json" = "md"): string {
   return `${API_BASE}/api/conversations/${id}/export?format=${format}`;
 }
+
+// ---------- 模型配置（LLM settings）----------
+
+export type LlmRoleSetting = {
+  role: "conductor" | "advisor" | "router";
+  label: string;
+  model: string | null;
+  api_base: string | null;
+  has_key: boolean;
+};
+
+export type LlmSettingsResp = { roles: LlmRoleSetting[] };
+
+export function getLlmSettings() {
+  return apiGet<LlmSettingsResp>("/api/settings/llm");
+}
+
+export async function putLlmSetting(body: {
+  role: string;
+  model: string;
+  api_base?: string | null;
+  api_key?: string | null;
+}): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/settings/llm`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    handleUnauthorized(res.status);
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `保存失败 (${res.status})`);
+  }
+}
+
+export async function testLlmSetting(body: {
+  role: string;
+  model: string;
+  api_base?: string | null;
+  api_key?: string | null;
+}): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/api/settings/llm/test`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    handleUnauthorized(res.status);
+    return { ok: false, message: `测试请求失败 (${res.status})` };
+  }
+  return res.json() as Promise<{ ok: boolean; message: string }>;
+}

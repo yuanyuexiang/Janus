@@ -15,7 +15,7 @@ class AdvisorProfile:
 
 class BaseAdvisor(ABC):
     profile: AdvisorProfile
-    model: str | None = None  # None 表示采用 settings.default_advisor_model
+    model: str | None = None  # None 表示采用「模型配置」页 advisor 角色的模型
     allowed_tools: list[str] = []
 
     @abstractmethod

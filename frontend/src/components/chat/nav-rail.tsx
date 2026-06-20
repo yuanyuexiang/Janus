@@ -25,9 +25,19 @@ const StatusIcon = (
   </svg>
 );
 
+// 模型配置：滑块/调节，象征「调模型」
+const ModelIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-5 w-5">
+    <path d="M5 8h9M17 8h2M5 16h2M10 16h9" strokeLinecap="round" />
+    <circle cx="15" cy="8" r="2" />
+    <circle cx="8.5" cy="16" r="2" />
+  </svg>
+);
+
 const ITEMS: RailItemDef[] = [
   { href: "/chat", label: "对话", icon: ChatIcon },
   { href: "/status", label: "服务状态", icon: StatusIcon },
+  { href: "/settings", label: "模型配置", icon: ModelIcon },
 ];
 
 export function NavRail() {

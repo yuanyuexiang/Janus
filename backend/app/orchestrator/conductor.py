@@ -17,8 +17,7 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
-from anthropic import APIStatusError
-
+from app.llm.client import LLMAPIError, LLMNotConfigured
 from app.orchestrator.advisors.base import BaseAdvisor
 from app.orchestrator.protocol import AdvisorOpinion
 from app.orchestrator.runner import run_advisor
@@ -38,9 +37,8 @@ async def _advisor_producer(
     try:
         async for event in run_advisor(advisor, question):
             await queue.put((name, event))
-    except APIStatusError:
-        # 透传给上层：让 chat.py 输出**一条**友好的 RELAY_* 错误，避免每个并行
-        # 顾问都吐一份 ADVISOR_CRASHED 噪音。
+    except (LLMAPIError, LLMNotConfigured):
+        # 透传给上层：让 chat.py 输出**一条**友好错误，避免每个并行顾问都吐噪音
         raise
     except Exception as e:
         logger.exception("Advisor %s failed", name)
@@ -97,7 +95,7 @@ async def run_council(
         # 把 relay 级错误（比如 402 余额不足）抛出去，让 chat.py 给出友好的
         # RELAY_* 提示，而不是假装一切正常。
         for r in results:
-            if isinstance(r, APIStatusError):
+            if isinstance(r, (LLMAPIError, LLMNotConfigured)):
                 raise r
 
     if not opinions:

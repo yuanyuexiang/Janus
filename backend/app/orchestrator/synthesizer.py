@@ -10,10 +10,7 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
-from anthropic import AsyncAnthropic
-
-from app.config import get_settings
-from app.llm.client import get_client
+from app.llm.client import stream_chat
 from app.orchestrator.protocol import AdvisorOpinion, CouncilSummary
 from app.orchestrator.runner import _extract_json_object
 
@@ -88,7 +85,6 @@ async def synthesize(
     *,
     question: str,
     opinions: list[AdvisorOpinion],
-    client: AsyncAnthropic | None = None,
     model: str | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """产出综合事件流：
@@ -96,10 +92,6 @@ async def synthesize(
       {"type": "synthesis", "full": CouncilSummary}     # 最终结构化结论
       {"type": "error", "code": "...", "message": "..."}
     """
-    settings = get_settings()
-    client = client or get_client()
-    model = model or settings.conductor_model
-
     if not opinions:
         yield {
             "type": "error",
@@ -113,36 +105,29 @@ async def synthesize(
     tokens_in = 0
     tokens_out = 0
 
-    async with client.messages.stream(
-        model=model,
-        max_tokens=6144,
-        system=CONDUCTOR_SYSTEM_PROMPT,
+    async for ev in stream_chat(
+        role="conductor",
+        model_override=model,
         messages=[{"role": "user", "content": prompt}],
-    ) as stream:
-        async for event in stream:
-            if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                chunk = event.delta.text
-                accumulated += chunk
-                yield {"type": "synthesis_text", "chunk": chunk}
-        final_msg = await stream.get_final_message()
-    if final_msg.usage:
-        tokens_in += final_msg.usage.input_tokens or 0
-        tokens_out += final_msg.usage.output_tokens or 0
+        system=CONDUCTOR_SYSTEM_PROMPT,
+        max_tokens=6144,
+    ):
+        if ev["type"] == "text":
+            accumulated += ev["chunk"]
+            yield {"type": "synthesis_text", "chunk": ev["chunk"]}
+        elif ev["type"] == "done":
+            tokens_in += ev["tokens_in"]
+            tokens_out += ev["tokens_out"]
 
-    logger.warning(
-        "综合第一轮：text_len=%d, stop_reason=%s",
-        len(accumulated),
-        final_msg.stop_reason,
-    )
+    logger.warning("综合第一轮：text_len=%d", len(accumulated))
 
     parsed = _extract_json_object(
         accumulated, required_keys=["verdict", "final_summary"]
     )
     if parsed is None:
         logger.warning(
-            "综合 JSON 解析失败（首轮，text_len=%d, stop=%s）；切换到「只要 JSON」重试",
+            "综合 JSON 解析失败（首轮，text_len=%d）；切换到「只要 JSON」重试",
             len(accumulated),
-            final_msg.stop_reason,
         )
         # 干净的重试：用一个全新的 prompt 显式要求只输出 JSON，
         # 不把可能被截断的首轮回复带进上下文污染输出。
@@ -159,24 +144,19 @@ async def synthesize(
             }
         ]
         retry_text = ""
-        async with client.messages.stream(
-            model=model,
-            max_tokens=6144,
-            system=CONDUCTOR_SYSTEM_PROMPT,
+        async for ev in stream_chat(
+            role="conductor",
+            model_override=model,
             messages=retry_messages,
-        ) as stream:
-            async for event in stream:
-                if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                    retry_text += event.delta.text
-            retry_final = await stream.get_final_message()
-        if retry_final.usage:
-            tokens_in += retry_final.usage.input_tokens or 0
-            tokens_out += retry_final.usage.output_tokens or 0
-        logger.warning(
-            "综合重试：text_len=%d, stop_reason=%s",
-            len(retry_text),
-            retry_final.stop_reason,
-        )
+            system=CONDUCTOR_SYSTEM_PROMPT,
+            max_tokens=6144,
+        ):
+            if ev["type"] == "text":
+                retry_text += ev["chunk"]
+            elif ev["type"] == "done":
+                tokens_in += ev["tokens_in"]
+                tokens_out += ev["tokens_out"]
+        logger.warning("综合重试：text_len=%d", len(retry_text))
         parsed = _extract_json_object(
             retry_text, required_keys=["verdict", "final_summary"]
         )

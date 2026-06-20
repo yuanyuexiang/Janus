@@ -2,7 +2,6 @@ from datetime import date, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
-    JSON,
     BigInteger,
     Date,
     DateTime,
@@ -86,3 +85,18 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
+
+
+class LlmSetting(Base):
+    """前端配置的 LLM 模型/凭据，按角色（conductor / advisor / router）各一行。
+    api_key 落库前 Fernet 加密（api_key_enc）。"""
+
+    __tablename__ = "llm_settings"
+
+    role: Mapped[str] = mapped_column(String(16), primary_key=True)
+    model: Mapped[str | None] = mapped_column(String(128))      # 完整 litellm 串，如 openai/gpt-4o
+    api_base: Mapped[str | None] = mapped_column(String(256))
+    api_key_enc: Mapped[str | None] = mapped_column(Text)        # Fernet 密文
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

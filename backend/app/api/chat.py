@@ -12,17 +12,10 @@ from collections.abc import AsyncIterator
 from typing import Literal
 from uuid import UUID
 
-# 用全局强引用集合保住「发完不等」的后台任务，让它们能跑完。
-# Python asyncio 默认对 task 是弱引用 —— 不加这层集合，auto-title 任务可能
-# 在生成器结束时就被 GC 回收掉。
-_BACKGROUND_TASKS: set[asyncio.Task] = set()
-
-from anthropic import APIStatusError
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.config import get_settings
 from app.db.repository import (
     create_conversation,
     get_conversation,
@@ -30,6 +23,12 @@ from app.db.repository import (
     save_message,
 )
 from app.db.session import SessionLocal
+from app.llm.client import (
+    LLMAPIError,
+    LLMNotConfigured,
+    configured_model_name,
+    is_configured,
+)
 from app.orchestrator.advisors import get_advisor, get_full_council, get_mini_council
 from app.orchestrator.conductor import run_council
 from app.orchestrator.runner import run_advisor
@@ -37,6 +36,11 @@ from app.orchestrator.titler import auto_title
 
 router = APIRouter(prefix="/api", tags=["chat"])
 logger = logging.getLogger(__name__)
+
+# 用全局强引用集合保住「发完不等」的后台任务，让它们能跑完。
+# Python asyncio 默认对 task 是弱引用 —— 不加这层集合，auto-title 任务可能
+# 在生成器结束时就被 GC 回收掉。
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
 
 Mode = Literal["solo", "mini", "full"]
 
@@ -67,7 +71,16 @@ class _AdvisorAccum:
 
 
 async def _stream(req: ChatRequest) -> AsyncIterator[str]:
-    settings = get_settings()
+    # 没在「模型配置」页接入任何模型 → 直接给清晰提示，别让后面一堆调用崩
+    if not is_configured():
+        yield _sse(
+            {
+                "type": "error",
+                "code": "LLM_NOT_CONFIGURED",
+                "message": "尚未接入模型，请到「模型配置」页填入模型与 API Key",
+            }
+        )
+        return
 
     if req.mode == "solo":
         advisor = get_advisor(req.advisor)
@@ -114,7 +127,7 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
 
         accums: dict[str, _AdvisorAccum] = {
             a.profile.name: _AdvisorAccum(
-                a.profile.name, a.model or settings.default_advisor_model
+                a.profile.name, a.model or configured_model_name("advisor") or "—"
             )
             for a in advisors
         }
@@ -198,7 +211,7 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
                     content=synthesis_text,
                     structured=synthesis_full,
                     tool_calls=[],
-                    model=settings.conductor_model,
+                    model=configured_model_name("conductor") or "—",
                     tokens_in=nonlocal_synthesis_tokens["in"] or None,
                     tokens_out=nonlocal_synthesis_tokens["out"] or None,
                 )
@@ -217,46 +230,52 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
                 task = asyncio.create_task(auto_title(conv.id, req.question, hint))
                 _BACKGROUND_TASKS.add(task)
                 task.add_done_callback(_BACKGROUND_TASKS.discard)
-        except APIStatusError as e:
-            logger.exception("relay/Anthropic API error")
+        except LLMNotConfigured as e:
+            yield _sse({"type": "error", "code": "LLM_NOT_CONFIGURED", "message": str(e)})
+        except LLMAPIError as e:
+            logger.exception("LLM API error")
             yield _sse(_relay_error_event(e))
         except Exception as e:
             logger.exception("chat stream failed")
             yield _sse({"type": "error", "code": "INTERNAL", "message": f"{type(e).__name__}: {e}"})
 
 
-def _relay_error_event(e: APIStatusError) -> dict:
-    """把 Anthropic SDK 抛的 API 错误转成对用户友好的 SSE 错误事件。"""
+def _relay_error_event(e: LLMAPIError) -> dict:
+    """把 LiteLLM 抛的 LLM API 错误转成对用户友好的 SSE 错误事件。"""
     status = getattr(e, "status_code", None)
     body = getattr(e, "body", None) or {}
     inner = (body.get("error") if isinstance(body, dict) else None) or {}
-    msg = (inner.get("message") if isinstance(inner, dict) else None) or str(e)
+    msg = (
+        (inner.get("message") if isinstance(inner, dict) else None)
+        or getattr(e, "message", None)
+        or str(e)
+    )
 
     if status == 402:
         return {
             "type": "error",
-            "code": "RELAY_INSUFFICIENT_BALANCE",
-            "message": "中转账户余额不足，请去 matrix-net.tech 充值",
+            "code": "LLM_INSUFFICIENT_BALANCE",
+            "message": "模型账户余额不足，请检查所配厂商的余额",
             "detail": msg,
         }
     if status == 401:
         return {
             "type": "error",
-            "code": "RELAY_AUTH_FAILED",
-            "message": "中转 API Key 无效或已过期，请检查 RELAY_API_KEY",
+            "code": "LLM_AUTH_FAILED",
+            "message": "API Key 无效或已过期，请到「模型配置」页检查",
             "detail": msg,
         }
     if status == 429:
         return {
             "type": "error",
-            "code": "RELAY_RATE_LIMITED",
-            "message": "中转请求频率超限，请稍后再试",
+            "code": "LLM_RATE_LIMITED",
+            "message": "模型请求频率超限，请稍后再试",
             "detail": msg,
         }
     return {
         "type": "error",
-        "code": f"RELAY_HTTP_{status or 'UNKNOWN'}",
-        "message": msg or "中转请求失败",
+        "code": f"LLM_HTTP_{status or 'UNKNOWN'}",
+        "message": msg or "模型请求失败",
         "detail": str(e)[:300],
     }
 

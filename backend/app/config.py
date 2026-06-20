@@ -12,14 +12,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://yuanzhuo:yuanzhuo@127.0.0.1:5432/yuanzhuo"
     redis_url: str = "redis://127.0.0.1:6379/0"
 
-    # Claude 中转配置（M1 以后填）
-    relay_base_url: str = ""
-    relay_api_key: str = ""
-
-    # 三档模型路由：主持人 / 默认顾问 / 路由分类器
-    conductor_model: str = "claude-opus-4-7"
-    default_advisor_model: str = "claude-sonnet-4-6"
-    router_model: str = "claude-haiku-4-5"
+    # LLM 模型经 LiteLLM 调用，配置在「模型配置」页（DB）里按角色填，不走 env。
+    # 此密钥用于把前端填的 API key 落库前 Fernet 加密：务必设成稳定的强随机串，
+    # 改了会导致已存的 key 解不开。留空则回退到 ACCESS_PASSWORD / 固定兜底（仅开发）。
+    llm_config_secret: str = ""
 
     # 数据源凭据 —— Choice 账密在 choice-gateway/.env 里，backend 仅通过 HTTP 调 gateway
     # Gateway 地址留空 → ChoiceProvider 不启用，链上直接落到 Tushare / Mock
