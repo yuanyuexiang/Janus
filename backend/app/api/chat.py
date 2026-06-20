@@ -127,7 +127,7 @@ async def _stream(req: ChatRequest) -> AsyncIterator[str]:
 
         accums: dict[str, _AdvisorAccum] = {
             a.profile.name: _AdvisorAccum(
-                a.profile.name, a.model or configured_model_name("advisor") or "—"
+                a.profile.name, a.model or configured_model_name(a.profile.name) or "—"
             )
             for a in advisors
         }

@@ -10,6 +10,7 @@ type RailItemDef = {
   href: string;
   label: string;
   icon: React.ReactNode;
+  match?: string; // 高亮判定前缀（默认用 href）；如「设置」匹配整个 /settings
 };
 
 // 极简线性图标，stroke=currentColor，跟古典调性不冲突
@@ -37,7 +38,7 @@ const ModelIcon = (
 const ITEMS: RailItemDef[] = [
   { href: "/chat", label: "对话", icon: ChatIcon },
   { href: "/status", label: "服务状态", icon: StatusIcon },
-  { href: "/settings", label: "模型配置", icon: ModelIcon },
+  { href: "/settings/models", label: "设置", icon: ModelIcon, match: "/settings" },
 ];
 
 export function NavRail() {
@@ -59,7 +60,8 @@ export function NavRail() {
       {/* 导航项 */}
       <div className="flex flex-col items-stretch gap-1 self-stretch px-2">
         {ITEMS.map((it) => {
-          const on = pathname === it.href || pathname.startsWith(it.href + "/");
+          const base = it.match ?? it.href;
+          const on = pathname === base || pathname.startsWith(base + "/");
           return (
             <Link
               key={it.href}

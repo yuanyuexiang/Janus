@@ -87,16 +87,30 @@ class Message(Base):
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
 
 
-class LlmSetting(Base):
-    """前端配置的 LLM 模型/凭据，按角色（conductor / advisor / router）各一行。
-    api_key 落库前 Fernet 加密（api_key_enc）。"""
+class LlmCredential(Base):
+    """厂商凭据：客户配置的一个「厂商账号」（名称 + 厂商 + key + base），
+    并缓存该账号实时拉到的可用模型列表（models）。api_key 落库前 Fernet 加密。"""
 
-    __tablename__ = "llm_settings"
+    __tablename__ = "llm_credentials"
 
-    role: Mapped[str] = mapped_column(String(16), primary_key=True)
-    model: Mapped[str | None] = mapped_column(String(128))      # 完整 litellm 串，如 openai/gpt-4o
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)   # 用户起的名，如「我的 DeepSeek」
+    provider: Mapped[str] = mapped_column(String(32))                 # deepseek / openai / anthropic / …
     api_base: Mapped[str | None] = mapped_column(String(256))
-    api_key_enc: Mapped[str | None] = mapped_column(Text)        # Fernet 密文
+    api_key_enc: Mapped[str | None] = mapped_column(Text)             # Fernet 密文
+    models: Mapped[list | None] = mapped_column(JSONB)               # 实时拉到的模型名列表（缓存）
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class LlmRoleAssignment(Base):
+    """角色分配：每个角色（执棋 / 6 位顾问 / 路由）用 哪个凭据 的 哪个模型。"""
+
+    __tablename__ = "llm_role_assignments"
+
+    role: Mapped[str] = mapped_column(String(24), primary_key=True)   # conductor / tao_shu / … / router
+    credential_name: Mapped[str | None] = mapped_column(String(64))   # 指向 llm_credentials.name
+    model: Mapped[str | None] = mapped_column(String(128))            # 具体模型名（凭据列表里的一项）
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

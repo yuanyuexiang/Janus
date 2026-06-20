@@ -7,40 +7,81 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Conversation, LlmSetting, Member, Message
+from app.db.models import (
+    Conversation,
+    LlmCredential,
+    LlmRoleAssignment,
+    Member,
+    Message,
+)
 
 DEMO_MEMBER_EMAIL = "demo@yuanzhuo.local"
 DEMO_MEMBER_NAME = "Demo Member"
 
 
-# ---------- LLM 配置 ----------
+# ---------- LLM 厂商凭据 ----------
 
 
-async def get_llm_settings(db: AsyncSession) -> list[LlmSetting]:
-    res = await db.execute(select(LlmSetting))
+async def list_llm_credentials(db: AsyncSession) -> list[LlmCredential]:
+    res = await db.execute(select(LlmCredential))
     return list(res.scalars().all())
 
 
-async def upsert_llm_setting(
+async def get_llm_credential(db: AsyncSession, name: str) -> LlmCredential | None:
+    return await db.get(LlmCredential, name)
+
+
+async def upsert_llm_credential(
     db: AsyncSession,
     *,
-    role: str,
-    model: str | None,
+    name: str,
+    provider: str,
     api_base: str | None,
     api_key_enc: str | None,
-) -> LlmSetting:
-    """新增/更新某角色配置。api_key_enc=None 表示「不动已存的 key」。"""
-    obj = await db.get(LlmSetting, role)
+    models: list[str] | None,
+) -> LlmCredential:
+    """新增/更新厂商凭据。api_key_enc=None 表示「不动已存的 key」；
+    models=None 表示「不动已存的模型列表」。"""
+    obj = await db.get(LlmCredential, name)
     if obj is None:
-        obj = LlmSetting(role=role)
+        obj = LlmCredential(name=name)
         db.add(obj)
-    obj.model = model
+    obj.provider = provider
     obj.api_base = api_base
     if api_key_enc is not None:
         obj.api_key_enc = api_key_enc
+    if models is not None:
+        obj.models = models
     await db.commit()
     await db.refresh(obj)
     return obj
+
+
+async def delete_llm_credential(db: AsyncSession, name: str) -> None:
+    obj = await db.get(LlmCredential, name)
+    if obj is not None:
+        await db.delete(obj)
+        await db.commit()
+
+
+# ---------- 角色分配（角色 → 凭据 + 模型）----------
+
+
+async def get_role_assignments(db: AsyncSession) -> list[LlmRoleAssignment]:
+    res = await db.execute(select(LlmRoleAssignment))
+    return list(res.scalars().all())
+
+
+async def set_role_assignment(
+    db: AsyncSession, *, role: str, credential_name: str | None, model: str | None
+) -> None:
+    obj = await db.get(LlmRoleAssignment, role)
+    if obj is None:
+        obj = LlmRoleAssignment(role=role)
+        db.add(obj)
+    obj.credential_name = credential_name
+    obj.model = model
+    await db.commit()
 
 
 async def get_or_create_demo_member(db: AsyncSession) -> Member:

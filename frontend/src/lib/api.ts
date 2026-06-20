@@ -109,54 +109,89 @@ export function exportConversationUrl(id: string, format: "md" | "json" = "md"):
   return `${API_BASE}/api/conversations/${id}/export?format=${format}`;
 }
 
-// ---------- 模型配置（LLM settings）----------
+// ---------- 设置：厂商凭据 + 角色分配 ----------
 
-export type LlmRoleSetting = {
-  role: "conductor" | "advisor" | "router";
-  label: string;
-  model: string | null;
-  api_base: string | null;
-  has_key: boolean;
-};
-
-export type LlmSettingsResp = { roles: LlmRoleSetting[] };
-
-export function getLlmSettings() {
-  return apiGet<LlmSettingsResp>("/api/settings/llm");
-}
-
-export async function putLlmSetting(body: {
-  role: string;
-  model: string;
-  api_base?: string | null;
-  api_key?: string | null;
-}): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/settings/llm`, {
-    method: "PUT",
-    headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(body),
+async function mutate(path: string, method: string, body?: unknown): Promise<void> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: authHeaders(body ? { "Content-Type": "application/json" } : {}),
+    body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
     handleUnauthorized(res.status);
     const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `保存失败 (${res.status})`);
+    throw new Error(detail?.detail ?? `请求失败 (${res.status})`);
   }
 }
 
-export async function testLlmSetting(body: {
-  role: string;
-  model: string;
+// 厂商凭据（含该账号实时拉到的模型列表）
+export type LlmCredential = {
+  name: string;
+  provider: string;
+  api_base: string | null;
+  has_key: boolean;
+  models: string[];
+};
+
+export function getCredentials() {
+  return apiGet<{ credentials: LlmCredential[] }>("/api/settings/credentials");
+}
+
+export function putCredential(body: {
+  name: string;
+  provider: string;
   api_base?: string | null;
   api_key?: string | null;
-}): Promise<{ ok: boolean; message: string }> {
-  const res = await fetch(`${API_BASE}/api/settings/llm/test`, {
+  models?: string[] | null;
+}) {
+  return mutate("/api/settings/credentials", "PUT", body);
+}
+
+export function deleteCredential(name: string) {
+  return mutate(`/api/settings/credentials/${encodeURIComponent(name)}`, "DELETE");
+}
+
+// 实时调厂商接口列出该账号可用模型（顺带验证 Key）
+export async function listLiveModels(body: {
+  provider: string;
+  api_base?: string | null;
+  api_key?: string | null;
+  name?: string | null;
+}): Promise<{ ok: boolean; models: string[]; message: string }> {
+  const res = await fetch(`${API_BASE}/api/settings/credentials/list-models`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
   if (!res.ok) {
     handleUnauthorized(res.status);
-    return { ok: false, message: `测试请求失败 (${res.status})` };
+    return { ok: false, models: [], message: `获取失败 (${res.status})` };
   }
-  return res.json() as Promise<{ ok: boolean; message: string }>;
+  return res.json() as Promise<{ ok: boolean; models: string[]; message: string }>;
+}
+
+// 各厂商可选模型目录（LiteLLM 内置），离线兜底
+export function getModelCatalog() {
+  return apiGet<{ catalog: Record<string, string[]> }>("/api/settings/catalog");
+}
+
+// 角色分配（角色 → 凭据 + 模型）
+export type LlmRoleAssign = {
+  role: string;
+  label: string;
+  tag: string;
+  credential: string | null;
+  model: string | null;
+};
+
+export function getRoleAssignments() {
+  return apiGet<{ roles: LlmRoleAssign[] }>("/api/settings/roles");
+}
+
+export function putRoleAssignment(
+  role: string,
+  credential_name: string | null,
+  model: string | null,
+) {
+  return mutate("/api/settings/roles", "PUT", { role, credential_name, model });
 }

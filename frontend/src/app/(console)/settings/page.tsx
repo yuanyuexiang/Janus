@@ -1,5 +1,5 @@
-import { ModelSettingsView } from "@/components/chat/model-settings-view";
+import { redirect } from "next/navigation";
 
-export default function SettingsPage() {
-  return <ModelSettingsView />;
+export default function SettingsIndex() {
+  redirect("/settings/models");
 }

@@ -63,7 +63,7 @@ services:
 
   # ---------- backend ----------
   backend:
-    image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-backend:v2}
+    image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-backend:v5}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -112,7 +112,7 @@ services:
   # 预编译镜像。API 地址在「运行时」由 API_BASE 注入（见 layout.tsx），
   # 改地址不用重新构建，改这里 + 重启即可。
   frontend:
-    image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-frontend:v2}
+    image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-frontend:v5}
     restart: unless-stopped
     environment:
       # 浏览器调用的 API 地址。留空 = 相对 /api（同源 Traefik 部署推荐，任何域名都对）。

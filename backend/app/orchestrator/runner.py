@@ -93,7 +93,8 @@ async def run_advisor(
       {type: "stage", stage: "thinking"|"tool_use"|"done"}
       {type: "error", code, message}
     """
-    # model=None → stream_chat 用 advisor 角色的默认模型；advisor.model 是按顾问的覆盖
+    # model=None → 用该顾问角色（按 profile.name 在「角色设置」里配的）模型；
+    # advisor.model 是代码级覆盖（通常 None）
     model = model or advisor.model
 
     mcp = get_manager()
@@ -125,7 +126,7 @@ async def run_advisor(
 
         done: dict[str, Any] | None = None
         async for ev in stream_chat(
-            role="advisor",
+            role=advisor.profile.name,
             model_override=model,
             messages=messages,
             system=composed_system_prompt,
@@ -206,7 +207,7 @@ async def run_advisor(
 
         retry_text = ""
         async for ev in stream_chat(
-            role="advisor",
+            role=advisor.profile.name,
             model_override=model,
             messages=messages,
             system=composed_system_prompt,
