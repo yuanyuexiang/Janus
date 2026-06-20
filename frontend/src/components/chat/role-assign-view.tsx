@@ -178,7 +178,11 @@ export function RoleAssignView() {
                 return (
                   <section
                     key={r.role}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-parchment-300/60 bg-parchment-100/40 px-5 py-4 shadow-paper dark:border-walnut-300/25 dark:bg-walnut-700/30"
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-5 py-4 shadow-paper ${
+                      incomplete
+                        ? "border-gilt-500/50 bg-gilt-500/[0.06] dark:border-gilt-500/40 dark:bg-gilt-500/[0.08]"
+                        : "border-parchment-300/60 bg-parchment-100/40 dark:border-walnut-300/25 dark:bg-walnut-700/30"
+                    }`}
                   >
                     <div className="min-w-[96px]">
                       <h3 className="font-display text-[15px] font-medium text-walnut-500 dark:text-parchment-100">

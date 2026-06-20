@@ -6,23 +6,30 @@
 #   - 镜像名与部署文件一致（janus-backend / janus-frontend / janus-choice-gateway）
 #     所以这里 build 出来的就是部署要用的镜像
 #   - 不接 Traefik、不用 external 网络，端口直接开在 127.0.0.1，方便本地访问
-#   - NEXT_PUBLIC_API_BASE 默认 localhost（本地浏览器直连后端）
+#   - 前端用 localhost 连后端（运行时 API_BASE 注入）
 #
 # 用法：
-#   # 1) 本地编译并起全栈测试（前端用 localhost 连后端）
+#   # 1) 本地编译并起核心全栈（postgres + redis + backend + frontend）
 #   docker compose -f docker-compose.build.yml up --build
+#   # → 浏览器开 http://localhost:3000 ，后端 http://localhost:8000
+#   # 数据库迁移在 backend 容器启动时自动执行（entrypoint: alembic upgrade head）
 #
-#   # 2) 只编译镜像（不跑）
-#   docker compose -f docker-compose.build.yml build
+#   # 2) 想连带 Choice 行情网关一起起（需 amd64/Rosetta + 已放好 SDK .so）
+#   docker compose -f docker-compose.build.yml --profile choice up --build
 #
-#   # 3) 编译「生产」镜像（前端烤进生产域名）→ 之后 push 或 save 到服务器
-#   NEXT_PUBLIC_API_BASE=https://janus.matrix-net.tech \
-#     docker compose -f docker-compose.build.yml build
-#   # 推到 registry（先 docker login）：
-#   docker compose -f docker-compose.build.yml push
-#   # 或离线导出导入：
-#   docker save janus-backend:latest janus-frontend:latest janus-choice-gateway:latest \
-#     | gzip | ssh 服务器 'gunzip | docker load'
+#   # 3) 端口被占？覆盖宿主端口（容器内端口不变，不影响服务互联）
+#   POSTGRES_PORT=5544 REDIS_PORT=6390 docker compose -f docker-compose.build.yml up --build
+#
+#   # 4) 编「生产」amd64 镜像（本机是 arm64 时务必指定平台）→ push 或 save 到服务器
+#   BUILD_PLATFORM=linux/amd64 NEXT_PUBLIC_API_BASE=https://janus.matrix-net.tech \
+#     docker compose -f docker-compose.build.yml --profile choice build
+#   docker compose -f docker-compose.build.yml --profile choice push   # 先 docker login
+#
+# 说明：
+#   - BUILD_PLATFORM 默认空 = 用本机架构（arm64 Mac 上原生跑，快）。
+#     构建给 amd64 服务器用的镜像时，显式设 BUILD_PLATFORM=linux/amd64。
+#   - choice-gateway 必须 amd64（SDK 只有 x86_64 的 .so），所以它单独钉死 amd64，
+#     且放在 choice profile 里，默认 up 不启动，避免拖累核心本地测试。
 # ============================================================
 
 services:
@@ -34,7 +41,8 @@ services:
       POSTGRES_USER: yuanzhuo
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yuanzhuo}
     ports:
-      - "127.0.0.1:5432:5432"
+      # 宿主端口默认避开常被占用的 5432（容器内仍是 5432，服务间用 postgres:5432 互联）
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -48,7 +56,8 @@ services:
     restart: unless-stopped
     command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
     ports:
-      - "127.0.0.1:6379:6379"
+      # 宿主端口默认避开常被占用的 6379（容器内仍是 6379）
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -58,12 +67,15 @@ services:
       retries: 5
 
   choice-gateway:
+    # 放进 choice profile：默认 up 不启动，需要时加 --profile choice
+    profiles: ["choice"]
     build:
       context: ./choice-gateway
       dockerfile: Dockerfile
       args:
         PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
     image: ${CHOICE_GATEWAY_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-choice-gateway:v2}
+    # Choice SDK 只有 x86_64 的 .so，强制 amd64（arm64 Mac 上走 Rosetta）
     platform: linux/amd64
     restart: unless-stopped
     ports:
@@ -84,15 +96,16 @@ services:
       args:
         PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
     image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-backend:v5}
-    platform: linux/amd64
+    # 默认本机架构（空）；编 amd64 部署镜像时设 BUILD_PLATFORM=linux/amd64
+    platform: ${BUILD_PLATFORM:-}
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
-      choice-gateway:
-        condition: service_started
+      # 不依赖 choice-gateway：它在 choice profile 里、默认不起；
+      # backend 连不上行情网关时优雅降级（状态页显示 Choice 待激活），不影响对话/配置
     environment:
       DATABASE_URL: postgresql+asyncpg://yuanzhuo:${POSTGRES_PASSWORD:-yuanzhuo}@postgres:5432/yuanzhuo
       REDIS_URL: redis://redis:6379/0
@@ -118,7 +131,7 @@ services:
         # npm 源：默认国内镜像；海外构建可传 NPM_REGISTRY=https://registry.npmjs.org
         NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
     image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-frontend:v5}
-    platform: linux/amd64
+    platform: ${BUILD_PLATFORM:-}
     restart: unless-stopped
     environment:
       # 本地测试：前端容器 :3000、后端容器 :8000 是不同源 → 浏览器要打绝对地址。

@@ -70,14 +70,28 @@ class _AdvisorAccum:
         self.tokens_out: int = 0
 
 
+def _role_label(role: str) -> str:
+    if role == "conductor":
+        return "执棋"
+    if role == "router":
+        return "路由"
+    adv = get_advisor(role)
+    return adv.profile.display if adv else role
+
+
 async def _stream(req: ChatRequest) -> AsyncIterator[str]:
-    # 没在「模型配置」页接入任何模型 → 直接给清晰提示，别让后面一堆调用崩
-    if not is_configured():
+    # 总闸：本次对话真正必需的角色得配好模型，否则给清晰提示，别让后面一堆调用崩。
+    # solo 只需要那位顾问；圆桌(mini/full)需要执棋来综合。
+    need_role = req.advisor if (req.mode == "solo" and req.advisor) else "conductor"
+    if not is_configured(need_role):
         yield _sse(
             {
                 "type": "error",
                 "code": "LLM_NOT_CONFIGURED",
-                "message": "尚未接入模型，请到「模型配置」页填入模型与 API Key",
+                "message": (
+                    f"「{_role_label(need_role)}」还没配好模型，"
+                    "请到 设置 → 角色设置 给它选好「凭据」和「模型」"
+                ),
             }
         )
         return
