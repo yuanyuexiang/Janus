@@ -31,6 +31,7 @@ from app.db.repository import (
     get_llm_credential,
     get_role_assignments,
     list_llm_credentials,
+    rename_llm_credential,
     set_role_assignment,
     upsert_llm_credential,
 )
@@ -60,6 +61,7 @@ class CredentialIn(BaseModel):
     api_base: str | None = None
     api_key: str | None = None        # 空 / 省略 = 不改动已存 key
     models: list[str] | None = None   # 实时拉到的模型列表（None = 不改）
+    original_name: str | None = None  # 编辑时的原名；与 name 不同即重命名
 
 
 class ListModelsIn(BaseModel):
@@ -92,6 +94,14 @@ async def put_credential(body: CredentialIn, db: AsyncSession = Depends(get_db))
         raise HTTPException(status_code=400, detail="凭据名称不能为空")
     if not provider:
         raise HTTPException(status_code=400, detail="请选择厂商")
+    # 改名：先把旧名（含引用它的角色分配）迁到新名，再按新名写其余字段
+    orig = (body.original_name or "").strip()
+    if orig and orig != name:
+        if await get_llm_credential(db, name) is not None:
+            raise HTTPException(status_code=400, detail=f"名称「{name}」已存在")
+        if await get_llm_credential(db, orig) is None:
+            raise HTTPException(status_code=400, detail=f"原凭据「{orig}」不存在")
+        await rename_llm_credential(db, old_name=orig, new_name=name)
     api_key_enc = encrypt(body.api_key) if body.api_key else None
     await upsert_llm_credential(
         db,

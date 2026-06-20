@@ -143,6 +143,7 @@ export function putCredential(body: {
   api_base?: string | null;
   api_key?: string | null;
   models?: string[] | null;
+  original_name?: string | null; // 编辑时传原名；与 name 不同即重命名
 }) {
   return mutate("/api/settings/credentials", "PUT", body);
 }

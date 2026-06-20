@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
@@ -62,6 +62,20 @@ async def delete_llm_credential(db: AsyncSession, name: str) -> None:
     if obj is not None:
         await db.delete(obj)
         await db.commit()
+
+
+async def rename_llm_credential(db: AsyncSession, *, old_name: str, new_name: str) -> None:
+    """改凭据名（主键）：同时把引用它的角色分配迁到新名，避免落空。
+    调用方需保证 new_name 未被占用、old_name 存在。"""
+    await db.execute(
+        update(LlmCredential).where(LlmCredential.name == old_name).values(name=new_name)
+    )
+    await db.execute(
+        update(LlmRoleAssignment)
+        .where(LlmRoleAssignment.credential_name == old_name)
+        .values(credential_name=new_name)
+    )
+    await db.commit()
 
 
 # ---------- 角色分配（角色 → 凭据 + 模型）----------
