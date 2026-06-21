@@ -20,14 +20,20 @@
 #   # 3) 端口被占？覆盖宿主端口（容器内端口不变，不影响服务互联）
 #   POSTGRES_PORT=5544 REDIS_PORT=6390 docker compose -f docker-compose.build.yml up --build
 #
-#   # 4) 编「生产」amd64 镜像（本机是 arm64 时务必指定平台）→ push 或 save 到服务器
-#   BUILD_PLATFORM=linux/amd64 NEXT_PUBLIC_API_BASE=https://janus.matrix-net.tech \
+#   # 4) 编「生产」镜像（默认就是 amd64，直接推到 Ubuntu 云上用）→ push 到 registry
+#   NEXT_PUBLIC_API_BASE=https://janus.matrix-net.tech \
 #     docker compose -f docker-compose.build.yml --profile choice build
 #   docker compose -f docker-compose.build.yml --profile choice push   # 先 docker login
 #
+#   # 5)（可选）想要一份镜像在 Mac/Ubuntu 都「原生」跑：用 buildx 编多架构并推 registry
+#   docker buildx build --platform linux/amd64,linux/arm64 \
+#     -t registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-backend:v6 --push ./backend
+#   #（前端同理；choice-gateway 只有 amd64，不做多架构）
+#
 # 说明：
-#   - BUILD_PLATFORM 默认空 = 用本机架构（arm64 Mac 上原生跑，快）。
-#     构建给 amd64 服务器用的镜像时，显式设 BUILD_PLATFORM=linux/amd64。
+#   - BUILD_PLATFORM 默认 linux/amd64：一份镜像在云上 Ubuntu 原生跑、在本机 Mac 经
+#     Rosetta 也能跑；推到 amd64 服务器不会因架构不符起不来（你云上是 Ubuntu，这是默认安全档）。
+#     只想在 Mac 上原生提速（不走 Rosetta）：BUILD_PLATFORM=linux/arm64 docker compose ... up
 #   - choice-gateway 必须 amd64（SDK 只有 x86_64 的 .so），所以它单独钉死 amd64，
 #     且放在 choice profile 里，默认 up 不启动，避免拖累核心本地测试。
 # ============================================================
@@ -95,9 +101,10 @@ services:
       dockerfile: Dockerfile
       args:
         PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
-    image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-backend:v5}
-    # 默认本机架构（空）；编 amd64 部署镜像时设 BUILD_PLATFORM=linux/amd64
-    platform: ${BUILD_PLATFORM:-}
+    image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-backend:v6}
+    # 默认 amd64：云上 Ubuntu 原生跑、本机 Mac 经 Rosetta 也能跑，一份镜像两边通用。
+    # 想在 Mac 上原生提速（不走 Rosetta）：BUILD_PLATFORM=linux/arm64 docker compose ... up
+    platform: ${BUILD_PLATFORM:-linux/amd64}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -130,8 +137,9 @@ services:
       args:
         # npm 源：默认国内镜像；海外构建可传 NPM_REGISTRY=https://registry.npmjs.org
         NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
-    image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-frontend:v5}
-    platform: ${BUILD_PLATFORM:-}
+    image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/yuanyuexiang/janus-frontend:v6}
+    # 默认 amd64（同 backend）：Ubuntu 原生 + Mac Rosetta 通用；Mac 原生提速设 BUILD_PLATFORM=linux/arm64
+    platform: ${BUILD_PLATFORM:-linux/amd64}
     restart: unless-stopped
     environment:
       # 本地测试：前端容器 :3000、后端容器 :8000 是不同源 → 浏览器要打绝对地址。
